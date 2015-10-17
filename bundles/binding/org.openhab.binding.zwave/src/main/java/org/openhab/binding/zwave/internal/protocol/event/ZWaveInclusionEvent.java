@@ -8,14 +8,17 @@
  */
  package org.openhab.binding.zwave.internal.protocol.event;
 
+import java.util.Date;
+
 /**
  * This event signals a node being included or excluded into the network.
  * @author Chris Jackson
  * @since 1.5.0
  */
 public class ZWaveInclusionEvent extends ZWaveEvent {
-	Type type;
-	
+	private final Type type;
+	private final Date includedAt;
+
 	/**
 	 * Constructor. Creates a new instance of the ZWaveInclusionEvent
 	 * class.
@@ -23,18 +26,31 @@ public class ZWaveInclusionEvent extends ZWaveEvent {
 	 */
 	public ZWaveInclusionEvent(Type type, int nodeId) {
 		super(nodeId);
-		
+
 		this.type = type;
+		this.includedAt = new Date();
 	}
 
 	public ZWaveInclusionEvent(Type type) {
 		super(255);
-		
+
 		this.type = type;
+		this.includedAt = new Date();
 	}
-	
+
+	public Date getIncludedAt() {
+		return includedAt;
+	}
+
 	public Type getEvent() {
 		return type;
+	}
+
+	@Override
+	public String toString() {
+		return new StringBuilder("ZWaveInclusionEvent [type=").append(type).append(", occurred ")
+				.append(System.currentTimeMillis() - includedAt.getTime()).append("ms ago, getNodeId()=").append(getNodeId())
+				.append(", getEndpoint()=").append(getEndpoint()).append("]").toString();
 	}
 
 	public enum Type {

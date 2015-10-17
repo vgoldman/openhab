@@ -1,0 +1,10 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: openHAB ZWave Tests
+Bundle-SymbolicName: org.openhab.binding.zwave.test
+Bundle-Version: 1.8.0.qualifier
+Bundle-Vendor: openHAB.org
+Fragment-Host: org.openhab.core.persistence
+Bundle-RequiredExecutionEnvironment: JavaSE-1.6
+Require-Bundle: org.junit4;bundle-version="4.8.1"
+Import-Package: org.slf4j, org.osgi.framework, ch.qos.logback.classic, ch.qos.logback.core

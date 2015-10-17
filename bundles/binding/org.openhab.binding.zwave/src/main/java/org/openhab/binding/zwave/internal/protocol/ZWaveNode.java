@@ -13,19 +13,23 @@ import java.util.Calendar;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.openhab.binding.zwave.internal.HexToIntegerConverter;
+import org.openhab.binding.zwave.internal.protocol.SerialMessage.SerialMessageClass;
 import org.openhab.binding.zwave.internal.protocol.ZWaveDeviceClass.Basic;
 import org.openhab.binding.zwave.internal.protocol.ZWaveDeviceClass.Generic;
 import org.openhab.binding.zwave.internal.protocol.ZWaveDeviceClass.Specific;
 import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveAssociationCommandClass;
 import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveCommandClass;
-import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveVersionCommandClass;
-import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveWakeUpCommandClass;
 import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveCommandClass.CommandClass;
 import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveMultiInstanceCommandClass;
+import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveSecurityCommandClass;
+import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveVersionCommandClass;
+import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveWakeUpCommandClass;
 import org.openhab.binding.zwave.internal.protocol.event.ZWaveEvent;
 import org.openhab.binding.zwave.internal.protocol.event.ZWaveNodeStatusEvent;
 import org.openhab.binding.zwave.internal.protocol.initialization.ZWaveNodeInitStage;
@@ -61,7 +65,7 @@ public class ZWaveNode {
 	private int homeId = Integer.MAX_VALUE;
 	private int nodeId = Integer.MAX_VALUE;
 	private int version = Integer.MAX_VALUE;
-	
+
 	private String name;
 	private String location;
 
@@ -71,13 +75,14 @@ public class ZWaveNode {
 	private int deviceId = Integer.MAX_VALUE;
 	@XStreamConverter(HexToIntegerConverter.class)
 	private int deviceType = Integer.MAX_VALUE;
-	
+
 	private boolean listening;			 // i.e. sleeping
-	private boolean frequentlyListening; 
+	private boolean frequentlyListening;
 	private boolean routing;
 	private String healState;
-	
+
 	private Map<CommandClass, ZWaveCommandClass> supportedCommandClasses = new HashMap<CommandClass, ZWaveCommandClass>();
+	private Set<CommandClass> securedCommandClasses = new HashSet<CommandClass>();
 	private List<Integer> nodeNeighbors = new ArrayList<Integer>();
 	private Date lastSent = null;
 	private Date lastReceived = null;
@@ -94,7 +99,7 @@ public class ZWaveNode {
 	@XStreamOmitField
 	private int deadCount = 0;
 	@XStreamOmitField
-	private Date deadTime;	
+	private Date deadTime;
 	@XStreamOmitField
 	private int retryCount = 0;
 
@@ -146,7 +151,7 @@ public class ZWaveNode {
 	public boolean isListening() {
 		return listening;
 	}
-	
+
 	/**
 	 * Sets whether the node is listening.
 	 * @param listening
@@ -166,7 +171,7 @@ public class ZWaveNode {
 	public boolean isFrequentlyListening() {
 		return frequentlyListening;
 	}
-	
+
 	/**
 	 * Sets whether the node is frequently listening.
 	 * Frequently listening is responding to a beam signal. Apart from
@@ -178,7 +183,7 @@ public class ZWaveNode {
 	public void setFrequentlyListening(boolean frequentlyListening) {
 		this.frequentlyListening = frequentlyListening;
 	}
-	
+
 	/**
 	 * Gets the Heal State of the node.
 	 * @return String indicating the node Heal State.
@@ -186,7 +191,7 @@ public class ZWaveNode {
 	public String getHealState() {
 		return healState;
 	}
-	
+
 	/**
 	 * Sets the Heal State of the node.
 	 * @param healState
@@ -220,8 +225,8 @@ public class ZWaveNode {
 		switch(state) {
 		case ALIVE:
 			logger.debug("NODE {}: Node has risen from the DEAD. Init stage is {}:{}.", nodeId,
-					this.getNodeInitializationStage().toString());			
-	
+					this.getNodeInitializationStage().toString());
+
 			// Reset the resend counter
 			this.resendCount = 0;
 			break;
@@ -245,12 +250,12 @@ public class ZWaveNode {
 			controller.notifyEventListeners(zEvent);
 		}
 		else {
-			logger.debug("NODE {}: Initialisation incomplete, not signalling state change.", this.nodeId);				
+			logger.debug("NODE {}: Initialisation incomplete, not signalling state change.", this.nodeId);
 		}
 
 		nodeState = state;
 	}
-	
+
 	/**
 	 * Gets the home ID
 	 * @return the homeId
@@ -378,7 +383,7 @@ public class ZWaveNode {
 	public boolean isInitializationComplete() {
 		return this.nodeStageAdvancer.isInitializationComplete();
 	}
-	
+
 
 	/**
 	 * Sets the node stage.
@@ -420,7 +425,7 @@ public class ZWaveNode {
 			logger.trace("NODE {}: App version requested but version is unknown", this.getNodeId());
 			return "0.0";
 		}
-		
+
 		return appVersion;
 	}
 
@@ -489,7 +494,7 @@ public class ZWaveNode {
 	public Collection<ZWaveCommandClass> getCommandClasses() {
 		return supportedCommandClasses.values();
 	}
-	
+
 	/**
 	 * Returns a commandClass object this node implements.
 	 * Returns null if command class is not supported by this node.
@@ -500,7 +505,7 @@ public class ZWaveNode {
 	{
 		return supportedCommandClasses.get(commandClass);
 	}
-	
+
 	/**
 	 * Returns whether a node supports this command class.
 	 * @param commandClass the command class to check
@@ -509,7 +514,7 @@ public class ZWaveNode {
 	public boolean supportsCommandClass(CommandClass commandClass) {
 		return supportedCommandClasses.containsKey(commandClass);
 	}
-	
+
 	/**
 	 * Adds a command class to the list of supported command classes by this node.
 	 * Does nothing if command class is already added.
@@ -518,17 +523,17 @@ public class ZWaveNode {
 	public void addCommandClass(ZWaveCommandClass commandClass)
 	{
 		CommandClass key = commandClass.getCommandClass();
-		
+
 		if (!supportedCommandClasses.containsKey(key)) {
 			logger.debug("NODE {}: Adding command class {} to the list of supported command classes.", nodeId, commandClass.getCommandClass().getLabel());
 			supportedCommandClasses.put(key, commandClass);
-			
+
 			if (commandClass instanceof ZWaveEventListener) {
 				this.controller.addEventListener((ZWaveEventListener)commandClass);
 			}
 		}
 	}
-	
+
 	/**
 	 * Removes a command class from the node.
 	 * This is used to remove classes that a node may report it supports
@@ -540,11 +545,11 @@ public class ZWaveNode {
 	}
 
 	/**
-	 * Resolves a command class for this node. First endpoint is checked. 
-	 * If endpoint == 0 or (endpoint != 1 and version of the multi instance 
-	 * command == 1) then return a supported command class on the node itself. 
+	 * Resolves a command class for this node. First endpoint is checked.
+	 * If endpoint == 0 or (endpoint != 1 and version of the multi instance
+	 * command == 1) then return a supported command class on the node itself.
 	 * If endpoint != 1 and version of the multi instance command == 2 then
-	 * first try command classes of endpoints. If not found the return a  
+	 * first try command classes of endpoints. If not found the return a
 	 * supported command class on the node itself.
 	 * Returns null if a command class is not found.
 	 * @param commandClass The command class to resolve.
@@ -556,19 +561,19 @@ public class ZWaveNode {
 		if (commandClass == null) {
 			return null;
 		}
-		
+
 		if (endpointId == 0) {
 			return getCommandClass(commandClass);
 		}
-		
+
 		ZWaveMultiInstanceCommandClass multiInstanceCommandClass = (ZWaveMultiInstanceCommandClass) supportedCommandClasses.get(CommandClass.MULTI_INSTANCE);
 		if (multiInstanceCommandClass == null) {
-			return null;	
+			return null;
 		}
 		else if (multiInstanceCommandClass.getVersion() == 2) {
 			ZWaveEndpoint endpoint = multiInstanceCommandClass.getEndpoint(endpointId);
-			
-			if (endpoint != null) { 
+
+			if (endpoint != null) {
 				ZWaveCommandClass result = endpoint.getCommandClass(commandClass);
 				if (result != null) {
 					return result;
@@ -583,7 +588,7 @@ public class ZWaveNode {
 		} else {
 			logger.warn("NODE {}: Unsupported multi instance command version: {}.", nodeId, multiInstanceCommandClass.getVersion());
 		}
-		
+
 		return null;
 	}
 
@@ -591,11 +596,11 @@ public class ZWaveNode {
 	 * Initialise the node
 	 */
 	public void initialiseNode() {
-		this.nodeStageAdvancer.startInitialisation();		
+		this.nodeStageAdvancer.startInitialisation();
 	}
 
 	/**
-	 * Encapsulates a serial message for sending to a 
+	 * Encapsulates a serial message for sending to a
 	 * multi-instance instance/ multi-channel endpoint on
 	 * a node.
 	 * @param serialMessage the serial message to encapsulate
@@ -604,21 +609,21 @@ public class ZWaveNode {
 	 * @param node the destination node.
 	 * @return SerialMessage on success, null on failure.
 	 */
-	public SerialMessage encapsulate(SerialMessage serialMessage, 
+	public SerialMessage encapsulate(SerialMessage serialMessage,
 			ZWaveCommandClass commandClass, int endpointId) {
 		ZWaveMultiInstanceCommandClass multiInstanceCommandClass;
-		
+
 		if (serialMessage == null) {
 			return null;
 		}
-		
+
 		// no encapsulation necessary.
 		if (endpointId == 0) {
 			return serialMessage;
 		}
-		
+
 		multiInstanceCommandClass = (ZWaveMultiInstanceCommandClass)this.getCommandClass(CommandClass.MULTI_INSTANCE);
-		
+
 		if (multiInstanceCommandClass != null) {
 			logger.debug("NODE {}: Encapsulating message, instance / endpoint {}", this.getNodeId(), endpointId);
 			switch (multiInstanceCommandClass.getVersion()) {
@@ -649,7 +654,7 @@ public class ZWaveNode {
 	public List<Integer> getNeighbors() {
 		return nodeNeighbors;
 	}
-	
+
 	/**
 	 * Clear the neighbor list
 	 */
@@ -680,7 +685,7 @@ public class ZWaveNode {
     		logger.debug("NODE {}: Node has no association class. No routes can be set.", nodeId);
     		return null;
     	}
-		
+
 		int groups = associationCmdClass.getGroupCount();
 		if(groups != 0) {
 			// Loop through each association group and add the node ID to the list
@@ -703,10 +708,10 @@ public class ZWaveNode {
     		logger.debug("NODE {}: No return routes required.", nodeId);
     		return null;
 		}
-		
+
 		return routedNodes;
 	}
-	
+
 	/**
 	 * Add a node ID to the neighbor list
 	 * @param nodeId the node to add
@@ -722,7 +727,7 @@ public class ZWaveNode {
 	public int getDeadCount() {
 		return deadCount;
 	}
-	
+
 	/**
 	 * Gets the number of times the node has been determined as DEAD
 	 * @return dead count
@@ -730,7 +735,7 @@ public class ZWaveNode {
 	public Date getDeadTime() {
 		return deadTime;
 	}
-	
+
 	/**
 	 * Gets the number of packets that have been resent to the node
 	 * @return retry count
@@ -748,7 +753,7 @@ public class ZWaveNode {
 		sendCount++;
 		this.lastSent = Calendar.getInstance().getTime();
 	}
-	
+
 	/**
 	 * Increments the received packet counter and records the last received time
 	 * This is simply used for statistical purposes to assess the health
@@ -758,7 +763,7 @@ public class ZWaveNode {
 		receiveCount++;
 		this.lastReceived = Calendar.getInstance().getTime();
 	}
-	
+
 	/**
 	 * Gets the number of packets sent to the node
 	 * @return send count
@@ -784,4 +789,118 @@ public class ZWaveNode {
 	public void setApplicationUpdateReceived(boolean received) {
 		applicationUpdateReceived = received;
 	}
+
+	public ZWaveController getController() {
+		return controller;
+	}
+
+	/**
+	 * Invoked by {@link ZWaveSecurityCommandClass} when a
+	 *  {@link ZWaveSecurityCommandClass#SECURITY_SUPPORTED_REPORT} is received.
+	 * @param data the class id for each class which must be encrypted in transmission
+	 */
+	public void setSecuredClasses(byte[] data) {
+		logger.info("NODE {}:  Setting secured command classes for node with {}", this.getNodeId(), SerialMessage.bb2hex(data));
+		boolean afterMark = false;
+		securedCommandClasses.clear(); // reset the existing list
+		for(byte aByte : data) {
+			// TODO: DB support extended commandClass format by checking for 0xF1 - 0xFF
+			if(ZWaveSecurityCommandClass.bytesAreEqual(aByte, ZWaveSecurityCommandClass.COMMAND_CLASS_MARK)) {
+				/**
+				 * Marks the end of the list of supported command classes.  The remaining classes are those
+				 * that can be controlled by the device.  These classes are created without values.
+				 * Messages received cause notification events instead.
+				 */
+				afterMark = true;
+				continue;
+			}
+
+			// Check if this is a commandClass that is already registered with the node
+			CommandClass commandClass = CommandClass.getCommandClass((aByte & 0xFF));
+			if(commandClass == null) {
+				// Not supported by OpenHab
+				logger.error("NODE {}:  setSecuredClasses requested secure " +
+						"class NOT supported by OpenHab: {}   afterMark={}",
+						this.getNodeId(), commandClass, afterMark);
+			} else {
+				// Sometimes security will be transmitted as a secure class, but it
+				// can't be set that way since it's the one doing the encryption work  So ignore that.
+				if(commandClass == CommandClass.SECURITY) {
+					continue;
+				} else if(afterMark) {
+					// Nothing to do, we don't track devices that control other devices
+					logger.info("NODE {}:  is after mark for commandClass {}", this.getNodeId(), commandClass);
+					break;
+				} else {
+					if(!this.supportsCommandClass(commandClass)) {
+						logger.info("NODE {}:  Adding secured command class to supported that wasn't in original list {}", this.getNodeId(), commandClass.getLabel());
+						ZWaveCommandClass classInstance = ZWaveCommandClass.getInstance((aByte & 0xFF), this, controller);
+						if(classInstance != null) {
+							addCommandClass(classInstance);
+						}
+					}
+					securedCommandClasses.add(commandClass);
+					logger.info("NODE {}:  (Secured) {}", this.getNodeId(), commandClass.getLabel());
+				}
+			}
+		}
+		if(logger.isInfoEnabled()) {
+			// show which classes are still insecure after the update
+			StringBuilder buf = new StringBuilder("NODE "+this.getNodeId()+": After update, INSECURE command classes are: ");
+			for(ZWaveCommandClass zwCommandClass : this.getCommandClasses()) {
+				if(!securedCommandClasses.contains(zwCommandClass.getCommandClass())) {
+					buf.append(zwCommandClass.getCommandClass()+", ");
+				}
+			}
+			logger.info(buf.toString().substring(0, buf.toString().length() - 1));
+		}
+	}
+
+	public boolean doesMessageRequireSecurityEncapsulation(SerialMessage serialMessage) {
+		boolean result = false;
+		logger.trace(String.format("NODE %s: Does message require security encapsulation: %s",
+				getNodeId(), serialMessage));
+		if(serialMessage.getMessageClass() != SerialMessageClass.SendData) {
+			logger.trace(String.format("NODE %s: Message class is not SendData, so security not required: %s",
+					getNodeId(), serialMessage.getMessageClass()));
+			result = false;
+		} else if(!supportedCommandClasses.containsKey(CommandClass.SECURITY)) {
+			// Does this node support security at all?
+			result = false;
+		} else {
+			int commandClassCode = (byte) serialMessage.getMessagePayloadByte(2) & 0xFF;
+			CommandClass commandClassOfMessage = CommandClass.getCommandClass(commandClassCode);
+			logger.debug(String.format("NODE %s: doesMessageRequireSecurityEncapsulation commandClassOfMessage=%s", getNodeId(), commandClassOfMessage));
+			if(commandClassOfMessage == null) {
+				// not sure how we would ever get here
+				logger.error(String.format("NODE %s: CommandClass not found for 0x%02X so treating as INSECURE %s", getNodeId(),
+						commandClassCode, serialMessage));
+				result = false;
+			} else if(CommandClass.SECURITY == commandClassOfMessage) {
+				// CommandClass.SECURITY is a special case because only <b>some</b> commands get encrypted
+				Byte messageCode = Byte.valueOf((byte) (serialMessage.getMessagePayloadByte(3) & 0xFF));
+				result = ZWaveSecurityCommandClass.doesCommandsRequireSecurityEncapsulation(messageCode);
+				logger.trace(String.format("NODE %s: Does Security message 0x%02X require security encapsulation? %s",
+						getNodeId(), messageCode, result));
+			} else if(commandClassOfMessage == CommandClass.NO_OPERATION) {
+				// On controller startup, PING seems to fail whenever it's encrypted, so don't
+				// TODO: remove and try when I'm closer
+				result = false;
+			} else {
+				result = securedCommandClasses.contains(commandClassOfMessage);
+				if(!result) {
+					// Check the command class itself as certain combinations of
+					// Specific and CommandClass have secure requirements
+					// TODO: do the cross check somehow
+					if(commandClassOfMessage == CommandClass.DOOR_LOCK ||
+							commandClassOfMessage == CommandClass.USER_CODE) {
+						return true;
+					}
+				}
+			}
+		}
+		logger.debug("NODE: {} Incoming message {} required security encapsulation={}", getNodeId(), serialMessage, result);
+		return result;
+	}
+
 }

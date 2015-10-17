@@ -23,7 +23,7 @@ import org.openhab.binding.zwave.internal.config.ZWaveProductDatabase;
 import org.openhab.binding.zwave.internal.protocol.SerialMessage;
 import org.openhab.binding.zwave.internal.protocol.SerialMessage.SerialMessageClass;
 import org.openhab.binding.zwave.internal.protocol.ZWaveController;
-import org.openhab.binding.zwave.internal.protocol.ZWaveDeviceClass.Specific;
+import org.openhab.binding.zwave.internal.protocol.ZWaveDeviceClass.Generic;
 import org.openhab.binding.zwave.internal.protocol.ZWaveEndpoint;
 import org.openhab.binding.zwave.internal.protocol.ZWaveEventListener;
 import org.openhab.binding.zwave.internal.protocol.ZWaveNode;
@@ -118,7 +118,7 @@ import org.slf4j.LoggerFactory;
  *
  * @author Jan-Willem Spuij
  * @author Chris Jackson
- * @since 1.4.0
+ * @since 1.4.0FAILED_CHECK
  */
 public class ZWaveNodeStageAdvancer implements ZWaveEventListener {
 
@@ -366,7 +366,7 @@ public class ZWaveNodeStageAdvancer implements ZWaveEventListener {
 				// It seems that PC_CONTROLLERs don't respond to a lot of requests, so let's
 				// just assume their OK!
 				// If this is a controller, we're done
-				if (node.getDeviceClass().getSpecificDeviceClass() == Specific.PC_CONTROLLER) {
+				if (node.getDeviceClass().getGenericDeviceClass() == Generic.STATIC_CONTOLLER) {
 					logger.debug("NODE {}: Node advancer: FAILED_CHECK - Controller - terminating initialisation", node.getNodeId());
 					currentStage = ZWaveNodeInitStage.DONE;
 					break;
@@ -484,6 +484,9 @@ public class ZWaveNodeStageAdvancer implements ZWaveEventListener {
 				break;
 
 			case MANUFACTURER:
+				// reset the idle timer to the original settings
+				retryTimer = BACKOFF_TIMER_START;
+				startIdleTimer();
 				// If we already know the device information, then continue
 				if (node.getManufacturer() != Integer.MAX_VALUE && node.getDeviceType() != Integer.MAX_VALUE
 						&& node.getDeviceId() != Integer.MAX_VALUE) {
@@ -710,18 +713,15 @@ public class ZWaveNodeStageAdvancer implements ZWaveEventListener {
 					break;
 				}
 
-				int value = 3600;
 				if (wakeupCommandClass.getInterval() == 0) {
-					logger.debug("NODE {}: Node advancer: SET_WAKEUP - Interval is currently 0. Set to 3600", node.getNodeId());
-				}
-				else {
-					value = wakeupCommandClass.getInterval();
+					logger.debug("NODE {}: Node advancer: SET_WAKEUP - Interval is currently 0. Skipping stage", node.getNodeId(), controller.getOwnNodeId());
+					break;
 				}
 
-				logger.debug("NODE {}: Node advancer: SET_WAKEUP - Set wakeup node to controller ({}), period {}", node.getNodeId(), controller.getOwnNodeId(), value);
+				logger.debug("NODE {}: Node advancer: SET_WAKEUP - Set wakeup node to controller ({})", node.getNodeId(), controller.getOwnNodeId());
 
 				// Set the wake-up interval, and request an update
-				addToQueue(wakeupCommandClass.setInterval(value));
+				addToQueue(wakeupCommandClass.setInterval(wakeupCommandClass.getInterval()));
 				addToQueue(wakeupCommandClass.getIntervalMessage());
 				break;
 
@@ -757,13 +757,11 @@ public class ZWaveNodeStageAdvancer implements ZWaveEventListener {
 					if(group.SetToController == true) {
 						// Check if we're already a member
 						if(associationCls.getGroupMembers(group.Index).contains(controller.getOwnNodeId())) {
-							logger.debug("NODE {}: Node advancer: SET_ASSOCIATION - ASSOCIATION set for group {}", node.getNodeId(), group.Index);
+							logger.debug("NODE {}: Node advancer: SET_ASSOCIATION - ASSOCIATION already set for group {}", node.getNodeId(), group.Index);
 						}
 						else {
 							logger.debug("NODE {}: Node advancer: SET_ASSOCIATION - Adding ASSOCIATION to group {}", node.getNodeId(), group.Index);
-							// Set the association, and request the update so we confirm if it's set
 							addToQueue(associationCls.setAssociationMessage(group.Index, controller.getOwnNodeId()));
-							addToQueue(associationCls.getAssociationMessage(group.Index));
 						}
 					}
 				}
@@ -781,19 +779,13 @@ public class ZWaveNodeStageAdvancer implements ZWaveEventListener {
 				ZWaveConfigurationCommandClass configurationCommandClass = (ZWaveConfigurationCommandClass) node
 						.getCommandClass(CommandClass.CONFIGURATION);
 
-				// If there are no configuration entries for this node, then continue.
-				List<ZWaveDbConfigurationParameter> configList = database.getProductConfigParameters();
-				if(configList.size() == 0) {
-					break;
-				}
-
-				// If the node doesn't support configuration class, then we better let people know!
 				if (configurationCommandClass == null) {
 					logger.error("NODE {}: Node advancer: GET_CONFIGURATION - CONFIGURATION class not supported", node.getNodeId());
 					break;
 				}
 
 				// Request all parameters for this node
+				List<ZWaveDbConfigurationParameter> configList = database.getProductConfigParameters();
 				for (ZWaveDbConfigurationParameter parameter : configList) {
 					// Some parameters don't return anything, so don't request them!
 					if(parameter.WriteOnly != null && parameter.WriteOnly == true) {

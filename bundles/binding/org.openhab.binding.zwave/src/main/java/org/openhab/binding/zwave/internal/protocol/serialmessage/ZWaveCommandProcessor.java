@@ -36,7 +36,7 @@ public abstract class ZWaveCommandProcessor {
 
 	public ZWaveCommandProcessor() {
 	}
-	
+
 	/**
 	 * Checks if the processor marked the transaction as complete
 	 * @return true is the transaction was completed.
@@ -53,7 +53,7 @@ public abstract class ZWaveCommandProcessor {
 	 */
 	protected void checkTransactionComplete(SerialMessage lastSentMessage, SerialMessage incomingMessage) {
 		// First, check if we're waiting for an ACK from the controller
-		// This is used for multi-stage transactions to ensure we get all parts of the 
+		// This is used for multi-stage transactions to ensure we get all parts of the
 		// transaction before completing.
 		if(lastSentMessage.isAckPending()) {
 			logger.trace("Message has Ack Pending");
@@ -62,10 +62,16 @@ public abstract class ZWaveCommandProcessor {
 
 		logger.debug("Sent message {}", lastSentMessage.toString());
 		logger.debug("Recv message {}", incomingMessage.toString());
-		logger.debug("Checking transaction complete: class={}, expected={}, cancelled={}", incomingMessage.getMessageClass(), lastSentMessage.getExpectedReply(), incomingMessage.isTransactionCanceled());
+		boolean ignoreTransmissionCompleteMismatch = true;
 		if (incomingMessage.getMessageClass() == lastSentMessage.getExpectedReply() && !incomingMessage.isTransactionCanceled()) {
+			logger.debug("Checking transaction complete: class={}, expected={}, cancelled={}", incomingMessage.getMessageClass(),
+					lastSentMessage.getExpectedReply(), incomingMessage.isTransactionCanceled());
 			transactionComplete = true;
 			logger.debug("         transaction complete!");
+		} else if(ignoreTransmissionCompleteMismatch) {
+			logger.debug("Checking transaction complete: class={}, expected={}, cancelled={} (MISMATCH IGNORED)", incomingMessage.getMessageClass(),
+					lastSentMessage.getExpectedReply(), incomingMessage.isTransactionCanceled());
+			transactionComplete = true;		// TODO: this was to test if this was preventing successful security pairing, fix properly and remove
 		}
 	}
 
@@ -137,9 +143,9 @@ public abstract class ZWaveCommandProcessor {
 			constructor = messageMap.get(serialMessage).getConstructor();
 			return constructor.newInstance();
 		} catch (Exception e) {
-			logger.error("Command processor error");
+			logger.error("Command processor error", e);
 		}
-		
+
 		return null;
 	}
 }

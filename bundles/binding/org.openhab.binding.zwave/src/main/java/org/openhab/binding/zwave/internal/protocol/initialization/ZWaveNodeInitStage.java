@@ -25,34 +25,35 @@ public enum ZWaveNodeInitStage {
 	WAIT(4, true, "Waiting"),
 	PING(5, true, "Ping Node"),
 	DETAILS(6, true, "Node Information"),
-	MANUFACTURER(7, true, "Manufacture Name and Product Identification"),
-	VERSION(8, true, "Command Class Versions"),
-	APP_VERSION(9, true, "Application Version"),
-	ENDPOINTS(10, true, "Command Class Endpoints"),
-	UPDATE_DATABASE(11, true, "Updating database"),
-	STATIC_VALUES(12, true, "Static Information"),
-	ASSOCIATIONS(13, false, "Associations"),
-	SET_WAKEUP(14, false, "Wakeup Target"),
-	SET_ASSOCIATION(15, false, "Wakeup Target"),
-	GET_CONFIGURATION(16, false, "Getting configuration"),
-	STATIC_END(17, false, "Static Initialisation Finished"),
+	SECURITY_REPORT(7, true, "Security Report"),
+	MANUFACTURER(8, true, "Manufacture Name and Product Identification"),
+	VERSION(9, true, "Command Class Versions"),
+	APP_VERSION(10, true, "Application Version"),
+	ENDPOINTS(11, true, "Command Class Endpoints"),
+	UPDATE_DATABASE(12, true, "Updating database"),
+	STATIC_VALUES(13, true, "Static Information"),
+	ASSOCIATIONS(14, false, "Associations"),
+	SET_WAKEUP(15, false, "Wakeup Target"),
+	SET_ASSOCIATION(16, false, "Wakeup Target"),
+	GET_CONFIGURATION(17, false, "Getting configuration"),
+	STATIC_END(18, false, "Static Initialisation Finished"),
 
 	// States below are not restored from the configuration files
-	SESSION_START(18, false, "Restore Marker"),
-	DYNAMIC_VALUES(19, false, "Frequently Changed Information"),
+	SESSION_START(19, false, "Restore Marker"),
+	DYNAMIC_VALUES(20, false, "Frequently Changed Information"),
 
-	DONE(20, false, "Node Complete");
+	DONE(21, false, "Node Complete");
 
 	private int stage;
 	private boolean mandatory;
 	private String label;
-	
+
 	/**
 	 * A mapping between the integer code and its corresponding
 	 * Node Stage to facilitate lookup by code.
 	 */
 	private static Map<Integer, ZWaveNodeInitStage> codeToNodeStageMapping;
-	
+
 	private ZWaveNodeInitStage (int s, boolean m, String l) {
 		stage = s;
 		mandatory = m;
@@ -65,7 +66,7 @@ public enum ZWaveNodeInitStage {
 			codeToNodeStageMapping.put(s.stage, s);
 		}
 	}
-	
+
 	/**
 	 * Get the stage protocol number.
 	 * @return number
@@ -73,7 +74,7 @@ public enum ZWaveNodeInitStage {
 	public int getStage() {
 		return this.stage;
 	}
-	
+
 	/**
 	 * Get the stage label
 	 * @return label
@@ -81,7 +82,7 @@ public enum ZWaveNodeInitStage {
 	public String getLabel() {
 		return this.label;
 	}
-	
+
 	/**
 	 * Lookup function based on the command class code.
 	 * Returns null if there is no command class with code i
@@ -92,10 +93,10 @@ public enum ZWaveNodeInitStage {
 		if (codeToNodeStageMapping == null) {
 			initMapping();
 		}
-		
+
 		return codeToNodeStageMapping.get(i);
 	}
-	
+
 	/**
 	 * Return the next stage after the current stage
 	 * @return the next stage
@@ -106,7 +107,7 @@ public enum ZWaveNodeInitStage {
 				return s;
 			}
 		}
-		
+
 		return null;
 	}
 
@@ -120,7 +121,7 @@ public enum ZWaveNodeInitStage {
 		}
 		return false;
 	}
-	
+
 	/**
 	 * Check if the current stage has completed the static stages.
 	 * @return true if static stages complete

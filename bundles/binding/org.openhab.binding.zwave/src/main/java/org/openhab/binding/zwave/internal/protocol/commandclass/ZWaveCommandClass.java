@@ -14,7 +14,6 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
-import java.lang.NumberFormatException;
 
 import org.openhab.binding.zwave.internal.config.ZWaveDbCommandClass;
 import org.openhab.binding.zwave.internal.protocol.SerialMessage;
@@ -402,14 +401,14 @@ public abstract class ZWaveCommandClass {
 		DEVICE_RESET_LOCALLY(0x5a,"DEVICE_RESET_LOCALLY",null),
 		ZWAVE_PLUS_INFO(0x5e,"ZWAVE_PLUS_INFO",null),
 		MULTI_INSTANCE(0x60,"MULTI_INSTANCE",ZWaveMultiInstanceCommandClass.class),
-		DOOR_LOCK(0x62,"DOOR_LOCK",null),
+		DOOR_LOCK(0x62,"DOOR_LOCK",ZWaveDoorLockCommandClass.class),
 		USER_CODE(0x63,"USER_CODE",null),
 		CONFIGURATION(0x70,"CONFIGURATION",ZWaveConfigurationCommandClass.class),
 		ALARM(0x71,"ALARM",ZWaveAlarmCommandClass.class),
 		MANUFACTURER_SPECIFIC(0x72,"MANUFACTURER_SPECIFIC",ZWaveManufacturerSpecificCommandClass.class),
 		POWERLEVEL(0x73,"POWERLEVEL",null),
 		PROTECTION(0x75,"PROTECTION",null),
-		LOCK(0x76,"LOCK",null),
+		LOCK(0x76,"LOCK",ZWaveLockCommandClass.class),
 		NODE_NAMING(0x77,"NODE_NAMING",null),
 		FIRMWARE_UPDATE_MD(0x7A,"FIRMWARE_UPDATE_MD",null),
 		GROUPING_NAME(0x7B,"GROUPING_NAME",null),
@@ -441,7 +440,7 @@ public abstract class ZWaveCommandClass {
 		AV_CONTENT_DIRECTORY_MD(0x95,"AV_CONTENT_DIRECTORY_MD",null),
 		AV_RENDERER_STATUS(0x96,"AV_RENDERER_STATUS",null),
 		AV_CONTENT_SEARCH_MD(0x97,"AV_CONTENT_SEARCH_MD",null),
-		SECURITY(0x98,"SECURITY",null),
+		SECURITY(0x98,"SECURITY",ZWaveSecurityCommandClass.class),
 		AV_TAGGING_MD(0x99,"AV_TAGGING_MD",null),
 		IP_CONFIGURATION(0x9A,"IP_CONFIGURATION",null),
 		ASSOCIATION_COMMAND_CONFIGURATION(0x9B,"ASSOCIATION_COMMAND_CONFIGURATION",null),
@@ -514,7 +513,15 @@ public abstract class ZWaveCommandClass {
 				initMapping();
 			}
 			
-			return codeToCommandClassMapping.get(i);
+			CommandClass commandClass = codeToCommandClassMapping.get(i);
+			if(commandClass == null) {
+				if(logger.isDebugEnabled()) {
+					logger.debug(String.format("CommandClass not found for 0x%02X, possible bug", i), new Exception("debug_stack"));
+				} else {
+					logger.error(String.format("CommandClass not found for 0x%02X, possible bug", i));
+				}
+			}
+			return commandClass;
 		}
 
 		/**

@@ -23,9 +23,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * This class represents a message which is used in serial API 
+ * This class represents a message which is used in serial API
  * interface to communicate with usb Z-Wave stick
- * 
+ *
  * A ZWave serial message frame is made up as follows
  * Byte 0 : SOF (Start of Frame) 0x01
  * Byte 1 : Length of frame - number of bytes to follow
@@ -33,7 +33,7 @@ import org.slf4j.LoggerFactory;
  * Byte 3 : Message Class (see SerialMessageClass)
  * Byte 4+: Message Class data                             >> Message Payload
  * Byte x : Last byte is checksum
- * 
+ *
  * @author Victor Belov
  * @author Brian Crosby
  * @author Chris Jackson
@@ -43,6 +43,7 @@ public class SerialMessage {
 
 	private static final Logger logger = LoggerFactory.getLogger(SerialMessage.class);
 	private final static AtomicLong sequence = new AtomicLong();
+	public static final int TRANSMIT_OPTIONS_NOT_SET = 0;
 
 	private long sequenceNumber;
 	private byte[] messagePayload;
@@ -53,10 +54,10 @@ public class SerialMessage {
 	private SerialMessageClass expectedReply;
 
 	private int messageNode = 255;
-	
-	private int transmitOptions = 0;
+
+	private int transmitOptions = TRANSMIT_OPTIONS_NOT_SET;
 	private int callbackId = 0;
-	
+
 	private boolean transactionCanceled = false;
 	private boolean ackPending = false;
 
@@ -64,7 +65,7 @@ public class SerialMessage {
 	 * Indicates whether the serial message is valid.
 	 */
 	public boolean isValid = false;
-	
+
 	/**
 	 * Indicates the number of retry attempts left
 	 */
@@ -77,9 +78,9 @@ public class SerialMessage {
 		logger.trace("Creating empty message");
 		messagePayload = new byte[] {};
 	}
-	
+
 	/**
-	 * Constructor. Creates a new instance of the SerialMessage class using the 
+	 * Constructor. Creates a new instance of the SerialMessage class using the
 	 * specified message class and message type. An expected reply can be given
 	 * to indicate that a transaction is complete. The priority indicates the
 	 * priority to send the message with. Higher priority messages are taken from
@@ -92,9 +93,9 @@ public class SerialMessage {
 	public SerialMessage(SerialMessageClass messageClass, SerialMessageType messageType, SerialMessageClass expectedReply, SerialMessagePriority priority) {
 		this(255, messageClass, messageType, expectedReply, priority);
 	}
-	
+
 	/**
-	 * Constructor. Creates a new instance of the SerialMessage class using the 
+	 * Constructor. Creates a new instance of the SerialMessage class using the
 	 * specified message class and message type. An expected reply can be given
 	 * to indicate that a transaction is complete. The priority indicates the
 	 * priority to send the message with. Higher priority messages are taken from
@@ -106,7 +107,7 @@ public class SerialMessage {
 	 * @param priority the message priority
 	 */
 	public SerialMessage(int nodeId, SerialMessageClass messageClass, SerialMessageType messageType, SerialMessageClass expectedReply, SerialMessagePriority priority) {
-		logger.debug(String.format("NODE %d: Creating empty message of class = %s (0x%02X), type = %s (0x%02X)", 
+		logger.debug(String.format("NODE %d: Creating empty message of class = %s (0x%02X), type = %s (0x%02X)",
 				new Object[] { nodeId, messageClass, messageClass.key, messageType, messageType.ordinal()}));
 		this.sequenceNumber = sequence.getAndIncrement();
 		this.messageClass = messageClass;
@@ -125,7 +126,7 @@ public class SerialMessage {
 	public SerialMessage(byte[] buffer) {
 		this(255, buffer);
 	}
-	
+
 	/**
 	 * Constructor. Creates a new instance of the SerialMessage class from a
 	 * specified buffer, and subsequently sets the node ID.
@@ -154,7 +155,7 @@ public class SerialMessage {
 	}
 
     /**
-     * Converts a byte array to a hexadecimal string representation    
+     * Converts a byte array to a hexadecimal string representation
      * @param bb the byte array to convert
      * @return string the string representation
      */
@@ -165,7 +166,7 @@ public class SerialMessage {
 		}
 		return result.toString();
 	}
-	
+
 	/**
 	 * Calculates a checksum for the specified buffer.
 	 * @param buffer the buffer to calculate.
@@ -187,11 +188,11 @@ public class SerialMessage {
 	 */
 	@Override
 	public String toString() {
-		return String.format("Message: class = %s (0x%02X), type = %s (0x%02X), payload = %s", 
+		return String.format("Message: class = %s (0x%02X), type = %s (0x%02X), payload = %s",
 				new Object[] { messageClass, messageClass.key, messageType, messageType.ordinal(),
 				SerialMessage.bb2hex(this.getMessagePayload()) });
 	};
-	
+
 	/**
 	 * Gets the SerialMessage as a byte array.
 	 * @return the message
@@ -200,14 +201,14 @@ public class SerialMessage {
 		ByteArrayOutputStream resultByteBuffer = new ByteArrayOutputStream();
 		byte[] result;
 		resultByteBuffer.write((byte)0x01);
-		int messageLength = messagePayload.length + 
-				(this.messageClass == SerialMessageClass.SendData && 
+		int messageLength = messagePayload.length +
+				(this.messageClass == SerialMessageClass.SendData &&
 				this.messageType == SerialMessageType.Request ? 5 : 3); // calculate and set length
-		
+
 		resultByteBuffer.write((byte) messageLength);
 		resultByteBuffer.write((byte) messageType.ordinal());
 		resultByteBuffer.write((byte) messageClass.getKey());
-		
+
 		try {
 			resultByteBuffer.write(messagePayload);
 		} catch (IOException e) {
@@ -219,21 +220,21 @@ public class SerialMessage {
 			resultByteBuffer.write(transmitOptions);
 			resultByteBuffer.write(callbackId);
 		}
-		
+
 		// Make space in the array for the checksum
 		resultByteBuffer.write((byte) 0x00);
-		
+
 		// Convert to a byte array
 		result = resultByteBuffer.toByteArray();
-		
+
 		// Calculate the checksum
 		result[result.length - 1] = 0x01;
 		result[result.length - 1] = calculateChecksum(result);
-		
+
 		logger.debug("Assembled message buffer = " + SerialMessage.bb2hex(result));
 		return result;
 	}
-	
+
 	/**
 	 * Check whether an object is equal to this serial message.
 	 * A serial message is considered equal when:
@@ -270,7 +271,7 @@ public class SerialMessage {
 
 		return Arrays.equals(other.messagePayload, this.messagePayload);
 	}
-	
+
 	/**
 	 * Gets the message type (Request / Response).
 	 * @return the message type
@@ -302,7 +303,7 @@ public class SerialMessage {
 	public byte[] getMessagePayload() {
 		return messagePayload;
 	}
-	
+
 	/**
 	 * Gets a byte of the message payload at the specified index.
 	 * The byte is returned as an integer between 0x00 (0) and 0xFF (255).
@@ -312,7 +313,7 @@ public class SerialMessage {
 	public int getMessagePayloadByte(int index) {
 		return messagePayload[index] & 0xFF;
 	}
-	
+
 	/**
 	 * Sets the message payload.
 	 * @param messagePayload
@@ -335,6 +336,14 @@ public class SerialMessage {
 	 */
 	public void setTransmitOptions(int transmitOptions) {
 		this.transmitOptions = transmitOptions;
+	}
+
+	/**
+	 * Identifies if transmit options have been set yet for this SendData Req
+	 * @return true if they were set
+	 */
+	public boolean areTransmitOptionsSet() {
+		return transmitOptions != TRANSMIT_OPTIONS_NOT_SET;
 	}
 
 	/**
@@ -439,7 +448,7 @@ public class SerialMessage {
 		Request,																			// 0x00
 		Response																			// 0x01
 	}
-	
+
 	/**
 	 * Serial message priority enumeration. Indicates the message priority.
 	 * Queue priority concept -:
@@ -474,7 +483,7 @@ public class SerialMessage {
 		Config,
 		Poll
 	}
-	
+
 	/**
 	 * Serial message class enumeration. Enumerates the different messages
 	 * that can be exchanged with the controller.
@@ -550,7 +559,7 @@ public class SerialMessage {
 		GetProtocolStatus(0xBF, "GetProtocolStatus"),
 		SetPromiscuousMode(0xD0,"SetPromiscuousMode"),										// Set controller into promiscuous mode to listen to all frames
 		PromiscuousApplicationCommandHandler(0xD1,"PromiscuousApplicationCommandHandler");
-		
+
 		/**
 		 * A mapping between the integer code and its corresponding ZWaveMessage
 		 * value to facilitate lookup by code.
@@ -583,7 +592,7 @@ public class SerialMessage {
 			}
 			return codeToMessageClassMapping.get(i);
 		}
-		
+
 		/**
 		 * Returns the enumeration key.
 		 * @return the key
@@ -603,14 +612,14 @@ public class SerialMessage {
 
 	/**
 	 * Comparator Class. Compares two serial messages with each other based on
-	 * node status (awake / sleep), priority and sequence number. 
+	 * node status (awake / sleep), priority and sequence number.
 	 * @author Jan-Willem Spuij
 	 * @since 1.3.0
 	 */
 	public static class SerialMessageComparator implements Comparator<SerialMessage> {
 
 		private final ZWaveController controller;
-		
+
 		/**
 		 * Constructor. Creates a new instance of the SerialMessageComparator class.
 		 * @param controller the {@link ZWaveController to use}
@@ -632,11 +641,11 @@ public class SerialMessage {
 			boolean arg0Listening = true;
 			boolean arg1Awake = false;
 			boolean arg1Listening = true;
-			
+
 			if ((arg0.getMessageClass() == SerialMessageClass.RequestNodeInfo ||
 					arg0.getMessageClass() == SerialMessageClass.SendData)) {
 				ZWaveNode node = this.controller.getNode(arg0.getMessageNode());
-				
+
 				if (node != null && !node.isListening() && !node.isFrequentlyListening()) {
 					arg0Listening = false;
 					ZWaveWakeUpCommandClass wakeUpCommandClass = (ZWaveWakeUpCommandClass)node.getCommandClass(CommandClass.WAKE_UP);
@@ -660,8 +669,8 @@ public class SerialMessage {
 					}
 				}
 			}
-			
-			// messages for awake nodes get priority over 
+
+			// messages for awake nodes get priority over
 			// messages for sleeping (or listening) nodes.
 			if (arg0Awake && !arg1Awake) {
 				return -1;
@@ -669,7 +678,7 @@ public class SerialMessage {
 			else if (arg1Awake && !arg0Awake) {
 				return 1;
 			}
-			
+
 			// messages for listening nodes get priority over
 			// non listening nodes.
 			if (arg0Listening && !arg1Listening) {

@@ -1308,7 +1308,7 @@ public class ZWaveConfiguration implements OpenHABConfigurationService, ZWaveEve
 		// Create the timer task
 		timerTask = new InclusionTimerTask();
 
-		// Start the timer for 30 seconds
+		// Start the timer for 30 seconds since secure
 		timer.schedule(timerTask, 30000);
 	}
 
