@@ -27,7 +27,7 @@ import com.thoughtworks.xstream.annotations.XStreamAlias;
 /**
  * Handles the Lock command class.
  * @author Dave Badia
- * @since 1.7.0
+ * @since 1.8.0
  */
 @XStreamAlias("lockCommandClass")
 public class ZWaveLockCommandClass extends ZWaveCommandClass
@@ -141,9 +141,8 @@ public class ZWaveLockCommandClass extends ZWaveCommandClass
 	 */
 	@XStreamAlias("lockState")
 	enum LockStateType {
-		// TODO: DB standardize case
 		UNLOCKED(0x00, "Unlocked"),
-		Locked(0xFF, "Locked"),
+		LOCKED(0xFF, "Locked"),
 		;
 		/**
 		 * A mapping between the integer code and its corresponding door

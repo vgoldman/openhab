@@ -52,7 +52,7 @@ import com.thoughtworks.xstream.annotations.XStreamOmitField;
  * Handles the Security command class.
  *
  * @author Dave Badia
- * @since 1.7.0
+ * @since 1.8.0
  */
 @XStreamAlias("securityCommandClass")
 public class ZWaveSecurityCommandClass extends ZWaveCommandClass implements

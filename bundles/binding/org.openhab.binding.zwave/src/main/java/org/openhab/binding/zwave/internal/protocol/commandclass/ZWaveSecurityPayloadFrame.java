@@ -20,7 +20,7 @@ import com.thoughtworks.xstream.annotations.XStreamOmitField;
  *
  * @see {@link ZWaveSecurityCommandClass#queueMessageForEncapsulation}
  * @author Dave Badia
- * @since 1.7.0
+ * @since 1.8.0
  */
 public class ZWaveSecurityPayloadFrame {
 

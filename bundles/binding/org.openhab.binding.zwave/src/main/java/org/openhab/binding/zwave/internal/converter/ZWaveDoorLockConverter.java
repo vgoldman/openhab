@@ -13,10 +13,8 @@ import java.util.Map;
 import org.openhab.binding.zwave.internal.converter.command.BinaryOnOffCommandConverter;
 import org.openhab.binding.zwave.internal.converter.command.ZWaveCommandConverter;
 import org.openhab.binding.zwave.internal.converter.state.BinaryDecimalTypeConverter;
-import org.openhab.binding.zwave.internal.converter.state.BinaryPercentTypeConverter;
 import org.openhab.binding.zwave.internal.converter.state.IntegerOnOffTypeConverter;
 import org.openhab.binding.zwave.internal.converter.state.IntegerOpenClosedTypeConverter;
-import org.openhab.binding.zwave.internal.converter.state.IntegerUpDownTypeConverter;
 import org.openhab.binding.zwave.internal.converter.state.ZWaveStateConverter;
 import org.openhab.binding.zwave.internal.protocol.SerialMessage;
 import org.openhab.binding.zwave.internal.protocol.ZWaveController;
@@ -35,7 +33,7 @@ import org.slf4j.LoggerFactory;
  * {@link ZWaveDoorLockCommandClass}. Implements polling of the door lock
  * status and receiving of door lock events.
  * @author Dave Badia
- * @since 1.6.0
+ * @since 1.8.0
  */
 public class ZWaveDoorLockConverter extends ZWaveCommandClassConverter<ZWaveDoorLockCommandClass> {
 

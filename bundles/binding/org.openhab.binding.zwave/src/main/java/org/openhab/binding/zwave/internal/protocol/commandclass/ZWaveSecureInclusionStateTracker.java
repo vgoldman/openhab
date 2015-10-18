@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory;
  * {@value #INIT_COMMAND_ORDER_LIST}
  *
  * @author Dave Badia
- * @since 1.7.0
+ * @since 1.8.0
  */
 class ZWaveSecureInclusionStateTracker {
 	private static final Logger logger = LoggerFactory.getLogger(ZWaveSecureInclusionStateTracker.class);

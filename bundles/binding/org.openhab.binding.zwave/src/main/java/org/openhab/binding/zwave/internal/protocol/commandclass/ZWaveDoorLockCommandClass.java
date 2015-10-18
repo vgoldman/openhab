@@ -27,7 +27,7 @@ import com.thoughtworks.xstream.annotations.XStreamAlias;
 /**
  * Handles the DoorLock command class.
  * @author Dave Badia
- * @since 1.7.0
+ * @since 1.8.0
  */
 @XStreamAlias("doorLockCommandClass")
 public class ZWaveDoorLockCommandClass extends ZWaveCommandClass
