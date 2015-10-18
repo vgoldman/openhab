@@ -559,9 +559,6 @@ public class ZWaveController {
 	 * @param serialMessage the serial message to enqueue.
 	 */
 	public void enqueue(SerialMessage serialMessage) {
-		if(logger.isTraceEnabled()) {
-			logger.trace("handleApplicationCommandRequest", new Exception("debug_stack "+Thread.currentThread().getName()));
-		}
 		// Sanity check!
 		if(serialMessage == null) {
 			return;

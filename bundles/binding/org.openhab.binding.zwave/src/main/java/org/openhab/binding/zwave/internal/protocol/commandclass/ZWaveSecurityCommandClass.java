@@ -305,9 +305,6 @@ public class ZWaveSecurityCommandClass extends ZWaveCommandClass implements
 		COMMAND_LOOKUP_TABLE.put(Byte.valueOf(SECURITY_NONCE_REPORT), "SECURITY_NONCE_REPORT");
 		COMMAND_LOOKUP_TABLE.put(Byte.valueOf(SECURITY_MESSAGE_ENCAP), "SECURITY_MESSAGE_ENCAP");
 		COMMAND_LOOKUP_TABLE.put(Byte.valueOf(SECURITY_MESSAGE_ENCAP_NONCE_GET), "SECURITY_MESSAGE_ENCAP_NONCE_GET");
-		for(Map.Entry<Byte, String> entry : COMMAND_LOOKUP_TABLE.entrySet()) {
-			logger.debug(String.format("COMMAND_LOOKUP_TABLE 0x%02X %s", entry.getKey(), entry.getValue()));
-		}
 	}
 
 	/**
