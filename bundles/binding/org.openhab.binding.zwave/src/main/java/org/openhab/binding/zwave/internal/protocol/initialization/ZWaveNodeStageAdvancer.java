@@ -434,13 +434,6 @@ public class ZWaveNodeStageAdvancer implements ZWaveEventListener {
 				break;
 
 			case DETAILS:
-				// If restored from a config file, redo from the dynamic node stage.
-				if (isRestoredFromConfigfile()) {
-					logger.debug("NODE {}: Node advancer: Restored from file - skipping static initialisation", node.getNodeId());
-					currentStage = ZWaveNodeInitStage.SESSION_START;
-					break;
-				}
-
 				// If the incoming frame is the IdentifyNode, then we continue
 				if (node.getApplicationUpdateReceived() == true) {
 					logger.debug("NODE {}: Node advancer: received RequestNodeInfo", node.getNodeId());
@@ -452,8 +445,9 @@ public class ZWaveNodeStageAdvancer implements ZWaveEventListener {
 				break;
 
 			case SECURITY_REPORT:
-				// TODO: move this up so it always gets called?   DETAILS ahs If restored from a config file, redo from the dynamic node stage.
-				// Command Classes that require security.
+				// For devices that use security.  When invoked during secure inclusion, this
+				// method will go through all steps to give the device our zwave:networkKey from
+				// the config.  This requires multiple steps as defined in ZWaveSecurityCommandClass
 				// SECURITY_REPORT has different semantics than the other stages such that:
 				// 		1. It cannot generate all of the request messages during the first pass
 				//		2. It handles stage advancement manually, as this code path is most typically called
@@ -462,14 +456,16 @@ public class ZWaveNodeStageAdvancer implements ZWaveEventListener {
 				//			waiting for another response to come back
 				if(this.node.supportsCommandClass(CommandClass.SECURITY)) {
 					ZWaveSecurityCommandClass securityCommandClass = (ZWaveSecurityCommandClass) this.node.getCommandClass(CommandClass.SECURITY);
-					// This path is typically performed by the ZWaveInputThread.  Since security
-					// inclusion has multiple layers of messages (nonce request/receive), call
-					// addToQueu on it's own thread so we can free up ZWaveInputThread
 					Collection<SerialMessage> messageList = securityCommandClass.initialize(stageAdvanced);
 					logger.debug("NODE {}: securityCommandClass.initialize returned messageList={}",
 							this.node.getNodeId(), messageList);
 					if(messageList == null) { // This means we're done, advance the stage
-						// fall through with an empty queue and let the stage advance
+						// If restored from a config file, redo from the dynamic node stage.
+						if (isRestoredFromConfigfile()) {
+							logger.debug("NODE {}: Node advancer: Restored from file - skipping static initialisation", node.getNodeId());
+							currentStage = ZWaveNodeInitStage.SESSION_START;
+							break;
+						}
 					} else if(messageList.isEmpty()) {
 						return; // Let ZWaveInputThread go back and wait for an incoming message
 					} else { // Add one or more messages to the queue
