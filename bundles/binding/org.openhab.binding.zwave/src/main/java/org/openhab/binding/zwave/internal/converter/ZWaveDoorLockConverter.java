@@ -38,7 +38,7 @@ import org.slf4j.LoggerFactory;
 public class ZWaveDoorLockConverter extends ZWaveCommandClassConverter<ZWaveDoorLockCommandClass> {
 
 	private static final Logger logger = LoggerFactory.getLogger(ZWaveDoorLockConverter.class);
-	private static final int REFRESH_INTERVAL = 0; // refresh interval in seconds for the binary switch;
+	private static final int REFRESH_INTERVAL = 10; // refresh interval in seconds for the binary switch;
 
 	/**
 	 * Constructor. Creates a new instance of the {@link ZWaveDoorLockConverter} class.

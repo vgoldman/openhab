@@ -2,13 +2,12 @@ package org.openhab.binding.zwave.internal.protocol.commandclass;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.openhab.binding.zwave.internal.protocol.SerialMessage;
 import org.openhab.binding.zwave.internal.protocol.ZWaveNode;
 import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveCommandClass.CommandClass;
-
-import com.thoughtworks.xstream.annotations.XStreamOmitField;
 
 /**
  * Used only by {@link ZWaveSecurityCommandClass}
@@ -23,7 +22,8 @@ import com.thoughtworks.xstream.annotations.XStreamOmitField;
  * @since 1.8.0
  */
 public class ZWaveSecurityPayloadFrame {
-
+	// TODO: DB instead of timeout here, tie this back to the sending of the nonce request?
+	private static final long MESSAGE_EXPIRATION_MS = TimeUnit.MINUTES.toMillis(2);
 	/**
 	 * The largest amount of payload we can fit into a single
 	 * {@link ZWaveSecurityPayloadFrame}. {@link SerialMessage} contents larger than this
@@ -39,16 +39,28 @@ public class ZWaveSecurityPayloadFrame {
 	/**
 	 *	Every <b>set</b> of multi frame messages must have unique sequence number.
 	 */
-	@XStreamOmitField
 	private static final AtomicInteger sequenceCounter = new AtomicInteger(0);
 
+	// metadata fields
+	/**
+	 * The time at which this message should be discarded from the encapsulation
+	 * queue if no nonce reply has been received
+	 */
+	private final long expirationTime;
+	
+	// data fields
+	private final String logMessage;
 	private final int partNumber;
 	private final int totalParts;
 	private final byte sequenceByte;
 	private final byte[] partBytes;
-	private final String logMessage;
 
-	public static List<ZWaveSecurityPayloadFrame> convertToSecurityPayload(ZWaveNode node, byte[] payloadBuffer, String logString) {
+	public static List<ZWaveSecurityPayloadFrame> convertToSecurityPayload(ZWaveNode node, SerialMessage messageToEncapsulate) {
+		// We need to start with command class byte, so strip off node ID and length from beginning
+		int copyLength = messageToEncapsulate.getMessagePayload().length - 2;
+		byte[] payloadBuffer = new byte[copyLength];
+		System.arraycopy(messageToEncapsulate.getMessagePayload(), 2, payloadBuffer, 0, copyLength);
+
 		List<ZWaveSecurityPayloadFrame> list = new ArrayList<ZWaveSecurityPayloadFrame>();
 		/*
 		 *  The sequence data in a single byte.  The entire byte is zero if the whole
@@ -66,75 +78,78 @@ public class ZWaveSecurityPayloadFrame {
 			byte[] partOneBuffer = new byte[SECURITY_PAYLOAD_ONE_PART_SIZE];
 			System.arraycopy(payloadBuffer, 0, partOneBuffer, 0, SECURITY_PAYLOAD_ONE_PART_SIZE);
 			byte partOneSequenceByte = (byte) (messageSequnceByte | 0x10); // Sequenced, first frame
-			list.add(new ZWaveSecurityPayloadFrame(node, 1, 2, partOneBuffer, partOneSequenceByte, logString));
+			list.add(new ZWaveSecurityPayloadFrame(node, 1, 2, partOneBuffer, partOneSequenceByte, messageToEncapsulate));
 
 			byte partTwoSequenceByte = (byte) (messageSequnceByte | 0x30); // Sequenced, second frame
 			int part2Length = payloadBuffer.length - SECURITY_PAYLOAD_ONE_PART_SIZE;
 			byte[] partTwoBuffer = new byte[part2Length];
 			System.arraycopy(payloadBuffer, SECURITY_PAYLOAD_ONE_PART_SIZE, partTwoBuffer, 0, part2Length);
-			list.add(new ZWaveSecurityPayloadFrame(node, 2, 2, payloadBuffer, partTwoSequenceByte, logString));
+			list.add(new ZWaveSecurityPayloadFrame(node, 2, 2, partTwoBuffer, partTwoSequenceByte, messageToEncapsulate));
 		} else {
 			// The entire message can be encapsulated as one
-			list.add(new ZWaveSecurityPayloadFrame(node, payloadBuffer, logString));
+			list.add(new ZWaveSecurityPayloadFrame(node, payloadBuffer, messageToEncapsulate));
 		}
 		return list;
 	}
 
 	private ZWaveSecurityPayloadFrame(ZWaveNode node, int partNumber, int totalParts,
-			byte[] messageBuffer, byte sequenceByte, String logMessage) {
+			byte[] partBuffer, byte sequenceByte, SerialMessage originalMessage) {
 		this.partNumber = partNumber;
+		this.partBytes = partBuffer;
 		this.totalParts = totalParts;
-		this.partBytes = new byte[messageBuffer.length];
-		System.arraycopy(messageBuffer, 0, partBytes, 0, messageBuffer.length);
 		this.sequenceByte = sequenceByte;
-		if(messageBuffer.length > 1) {
-			this.logMessage = String.format(
-					"NODE %s: SecurityPayload (part %d of %d) for %s 0x%02X: %s",
-					node.getNodeId(),
-					partNumber, totalParts,
-					CommandClass.getCommandClass(messageBuffer[0] & 0xff),
-					messageBuffer[1], logMessage);
-		} else {
-			this.logMessage = String.format(
-					"NODE %s: SecurityPayload (part %d of %d) for %s : %s",
-					node.getNodeId(),
-					partNumber, totalParts,
-					CommandClass.getCommandClass(messageBuffer[0] & 0xff),
-					 logMessage);
+		this.expirationTime = System.currentTimeMillis() + MESSAGE_EXPIRATION_MS;
+		// Replace the original payload bytes with ours
+		String ourSerialMessageString = originalMessage.toString();
+		int index = ourSerialMessageString.indexOf("payload");
+		if(index > 0) {
+			ourSerialMessageString = ourSerialMessageString.substring(0, index);
+			ourSerialMessageString = new StringBuilder(ourSerialMessageString).append("payload = ")
+					.append(SerialMessage.bb2hex(partBytes)).toString();
 		}
+		this.logMessage = String.format(
+				"NODE %s: SecurityPayload (part %d of %d) for %s : %s",
+				node.getNodeId(),
+				partNumber, totalParts,
+				CommandClass.getCommandClass(originalMessage.getMessageBuffer()[6] & 0xff),
+				ourSerialMessageString);
 	}
 
-	public ZWaveSecurityPayloadFrame(ZWaveNode node, byte[] messageBuffer,
-			String logString) {
-		this(node, 1, 1, messageBuffer, SEQUENCE_BYTE_FOR_SINGLE_FRAME_MESSAGE, logString);
+	private ZWaveSecurityPayloadFrame(ZWaveNode node, byte[] messageBuffer, SerialMessage originalMessage) {
+		this(node, 1, 1, messageBuffer, SEQUENCE_BYTE_FOR_SINGLE_FRAME_MESSAGE, originalMessage);
 	}
-	public int getTotalParts() {
+	
+	protected int getTotalParts() {
 		return totalParts;
 	}
 
-	public String getLogMessage() {
+	protected String getLogMessage() {
 		return logMessage;
 	}
 
-	public byte[] getMessageBytes() {
+	protected byte[] getMessageBytes() {
 		return partBytes;
 	}
 
-	public int getPart() {
+	protected int getPart() {
 		return partNumber;
 	}
 
-	public byte getSequenceByte() {
+	protected byte getSequenceByte() {
 		return sequenceByte;
 	}
 
-	public int getLength() {
+	protected int getLength() {
 		return partBytes.length;
 	}
 
 	@Override
 	public String toString() {
 		return logMessage;
+	}
+
+	protected long getExpirationTime() {
+		return expirationTime;
 	}
 
 

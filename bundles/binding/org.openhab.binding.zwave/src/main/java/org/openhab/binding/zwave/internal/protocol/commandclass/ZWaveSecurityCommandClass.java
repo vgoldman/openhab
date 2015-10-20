@@ -22,6 +22,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
@@ -240,10 +241,11 @@ public class ZWaveSecurityCommandClass extends ZWaveCommandClass implements
 	private NonceTimer requestNonceTimer = new NonceTimer();
 	/**
 	 * Queue of {@link ZWaveSecurityPayloadFrame} that are waiting for nonces
-	 * so they can be encapsulated and set
+	 * so they can be encapsulated and set.  Set the size large since we should
+	 * only hold a few at time
 	 */
 	@XStreamOmitField
-	private AbstractQueue<ZWaveSecurityPayloadFrame> payloadEncapsulationQueue = new ConcurrentLinkedQueue<ZWaveSecurityPayloadFrame>();
+	private AbstractQueue<ZWaveSecurityPayloadFrame> payloadEncapsulationQueue = new ArrayBlockingQueue<ZWaveSecurityPayloadFrame>(100);
 	@XStreamOmitField
 	private AtomicBoolean waitingForNonce = new AtomicBoolean(false);
 
@@ -662,12 +664,7 @@ public class ZWaveSecurityCommandClass extends ZWaveCommandClass implements
 				this.getNode().getNodeId(), SerialMessage.bb2hex(serialMessage.getMessageBuffer()),
 				serialMessage);
 
-		// Start with command class byte, so strip off node and length
-		int copyLength = serialMessage.getMessagePayload().length - 2;
-		byte[] payloadBuffer = new byte[copyLength];
-		System.arraycopy(serialMessage.getMessagePayload(), 2, payloadBuffer, 0, copyLength);
-
-		List<ZWaveSecurityPayloadFrame> securityPayloadFrameList = ZWaveSecurityPayloadFrame.convertToSecurityPayload(getNode(), payloadBuffer, serialMessage.toString());
+		List<ZWaveSecurityPayloadFrame> securityPayloadFrameList = ZWaveSecurityPayloadFrame.convertToSecurityPayload(getNode(), serialMessage);
 		queuePayloadForEncapsulationAndTransmission(securityPayloadFrameList);
 	}
 
@@ -679,6 +676,8 @@ public class ZWaveSecurityCommandClass extends ZWaveCommandClass implements
 	 *            the payload(s) to be encapsulated (encrypted)
 	 */
 	private void queuePayloadForEncapsulationAndTransmission(List<ZWaveSecurityPayloadFrame> securityPayloadList) {
+		logger.debug("NODE {}: In queuePayloadForEncapsulationAndTransmission for: {}", 
+				getNode().getNodeId(), securityPayloadList);
 		// Due to XStreamOmitField, payloadEncapsulationQueue and waitingForNonce can be null
 		if(payloadEncapsulationQueue == null) {
 			payloadEncapsulationQueue = new ConcurrentLinkedQueue<ZWaveSecurityPayloadFrame>();
@@ -686,15 +685,41 @@ public class ZWaveSecurityCommandClass extends ZWaveCommandClass implements
 		if(waitingForNonce == null) {
 			waitingForNonce = new AtomicBoolean(false);
 		}
-		// Now we can get to our logic
 		if(!payloadEncapsulationQueue.isEmpty()) {
-			logger.warn("Removing old items from payloadEncapsulationQueue: "+payloadEncapsulationQueue);
-			payloadEncapsulationQueue.clear();
+			// Clean up expired items and check for duplicate requests
+			Iterator<ZWaveSecurityPayloadFrame> iter = payloadEncapsulationQueue.iterator();
+			while(iter.hasNext()) {
+				ZWaveSecurityPayloadFrame frame = iter.next();
+				// Expired frame check
+				if(System.currentTimeMillis() > frame.getExpirationTime()) {
+					iter.remove();
+					logger.warn("NODE {}: Expired from payloadEncapsulationQueue: {}", getNode().getNodeId(), frame);
+				}
+				// Duplicate message check - if the queue already contains a message like this one, replace it
+				if(Arrays.equals(frame.getMessageBytes(), securityPayloadList.get(0).getMessageBytes())) {
+					// Found a message in the queue that is like ours, so remove the old one
+					boolean hasMultipleParts = frame.getTotalParts() > 1;
+					logger.info("NODE {}: Removing simliar ZWaveSecurityPayloadFrame payloadEncapsulationQueue: ",
+							getNode().getNodeId(), frame);
+					iter.remove();
+					if(hasMultipleParts) {
+						// delete the next one since it is the next part
+						if(iter.hasNext()) {
+							iter.remove();
+						}
+					}
+				}
+			}
 		}
 		payloadEncapsulationQueue.addAll(securityPayloadList);
-		logger.debug("NODE {}: queuePayloadForEncapsulationAndTransmission waitingForNonce={}", this.getNode()
-				.getNodeId(),waitingForNonce);
+		logger.debug("NODE {}: queuePayloadForEncapsulationAndTransmission waitingForNonce={}", 
+				this.getNode().getNodeId(),waitingForNonce);
 
+		// If the request timer expired, set waitingForNonce to false
+		if(!requestNonceTimer.isExpired() && waitingForNonce.get()) {
+			waitingForNonce.set(false);
+		}
+		// If we are not already waiting for a nonce, request one
 		if (!waitingForNonce.get()) {
 			// Request a nonce from the node. Its arrival
 			// will trigger the encapsulation and sending of the first payload in the queue
@@ -725,8 +750,8 @@ public class ZWaveSecurityCommandClass extends ZWaveCommandClass implements
 		}
 		if (requestNonceTimer.isExpired()) {
 			// The nonce was not received within the alloted time of us sending the nonce request. Send it again
-			logger.warn("NODE {}: nonce was not received within 10 seconds, resending request.", this.getNode()
-					.getNodeId());
+			logger.warn("NODE {}: nonce was not received within 10 seconds, resending request.", 
+					this.getNode().getNodeId());
 			requestNonce();
 			return;
 		}
@@ -1248,7 +1273,7 @@ public class ZWaveSecurityCommandClass extends ZWaveCommandClass implements
 		return result;
 	}
 
-	// TODO: remove all traceHex and use SerialMessage.bbToHex instead
+	// TODO: DB remove all traceHex and use SerialMessage.bbToHex instead
 	/**
 	 * Utility method to dump a byte array as hex. Will only print the data if debug
 	 * mode is debug logging is actually enabled.  We don't use {@link SerialMessage#bb2hex(byte[])}

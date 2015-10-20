@@ -106,7 +106,7 @@ public class ZWaveDoorLockCommandClass extends ZWaveCommandClass
 						"lockTimeoutSeconds = 0x%02x", this.getNode().getNodeId(), lockState, handlesMode,
 						doorCondition, lockTimeoutMinutes, lockTimeoutSeconds));
 
-				// TODO: handle other events too?
+				// TODO: DB handle other events too?
 				ZWaveDoorLockValueEvent zEvent = new ZWaveDoorLockValueEvent(this.getNode().getNodeId(),
 						endpoint, lockState);
 				this.getController().notifyEventListeners(zEvent);
@@ -129,13 +129,13 @@ public class ZWaveDoorLockCommandClass extends ZWaveCommandClass
 		logger.debug("NODE {}: Creating new message for application command DOORLOCK_GET", this.getNode().getNodeId());
 		SerialMessage result = new SerialMessage(this.getNode().getNodeId(), SerialMessageClass.SendData,
 				SerialMessageType.Request, SerialMessageClass.ApplicationCommandHandler, SerialMessagePriority.Get);
-	byte[] newPayload = { 	(byte) this.getNode().getNodeId(),
+		byte[] newPayload = { 	(byte) this.getNode().getNodeId(),
 								2,
 								(byte) getCommandClass().getKey(),
 								(byte) DOORLOCK_GET,
 							};
-	result.setMessagePayload(newPayload);
-	return result;
+		result.setMessagePayload(newPayload);
+		return result;
 	}
 
 	@Override

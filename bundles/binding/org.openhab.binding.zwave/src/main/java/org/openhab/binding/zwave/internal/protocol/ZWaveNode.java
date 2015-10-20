@@ -884,16 +884,16 @@ public class ZWaveNode {
 						getNodeId(), messageCode, result));
 			} else if(commandClassOfMessage == CommandClass.NO_OPERATION) {
 				// On controller startup, PING seems to fail whenever it's encrypted, so don't
-				// TODO: remove and try when I'm closer
+				// TODO: DB try again
 				result = false;
 			} else {
 				result = securedCommandClasses.contains(commandClassOfMessage);
 				if(!result) {
-					// Check the command class itself as certain combinations of
-					// Specific and CommandClass have secure requirements
-					// TODO: do the cross check somehow
+					// Certain messages must always be sent securely
 					if(commandClassOfMessage == CommandClass.DOOR_LOCK ||
-							commandClassOfMessage == CommandClass.USER_CODE) {
+							commandClassOfMessage == CommandClass.USER_CODE) { // TODO: DB what else?
+						logger.warn("NODE {}: CommandClass {} is not marked as secure but should be, forcing secure", 
+								getNodeId(), commandClassOfMessage);
 						return true;
 					}
 				}
