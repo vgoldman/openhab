@@ -20,7 +20,10 @@ import org.openhab.binding.zwave.internal.protocol.initialization.ZWaveNodeInitS
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
+/**
+ * @author Dave Badia
+ * @since 1.8.0
+ */
 public class ZWaveSecurityCommandClassTest extends TestCase {
 	private static String OZW_TEST_KEY_BYTES = "0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10";
 	final static Logger logger = LoggerFactory.getLogger(ZWaveSecurityCommandClassTest.class);
@@ -41,10 +44,9 @@ public class ZWaveSecurityCommandClassTest extends TestCase {
 		String dataString = "0x81, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0x5d, 0x5c, 0xa9, 0xf3, 0x20, 0x30, 0x34, 0x3a, 0x34, 0x32, 0x3a, 0x31, 0x33";
 		String ivString = " 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xf3, 0x68, 0x41, 0xd7, 0x37, 0xf6, 0xa5, 0x94";
 		String expectedByteString = "  0xeb, 0x3d, 0xd5, 0x8c, 0x1e, 0x4c, 0xde, 0x1e";
-		byte[] data = stringToBytes(dataString);
-		byte[] iv = stringToBytes(ivString);
-		byte[] expectedBytes = stringToBytes(expectedByteString);
-		System.out.println(data.length);
+		byte[] data = ZWaveSecurityCommandClass.hexStringToByteArray(dataString);
+		byte[] iv = ZWaveSecurityCommandClass.hexStringToByteArray(ivString);
+		byte[] expectedBytes = ZWaveSecurityCommandClass.hexStringToByteArray(expectedByteString);
 
 		ZWaveNode node = Mockito.mock(ZWaveNode.class);
 		Mockito.when(node.getNodeInitializationStage()).thenReturn(ZWaveNodeInitStage.DONE); // Test with real key?
@@ -52,22 +54,19 @@ public class ZWaveSecurityCommandClassTest extends TestCase {
 		ZWaveEndpoint endpoint = Mockito.mock(ZWaveEndpoint.class);
 		ZWaveSecurityCommandClass scc = new ZWaveSecurityCommandClass(node, controller, endpoint);
 		byte[] actualBytes = scc.generateMACComplex(data, data.length, (byte)0x01,  (byte)0x02, iv);
-		System.out.println("expected: "+Arrays.toString(expectedBytes));
-		System.out.println("actual:   "+Arrays.toString(actualBytes));
+//		System.out.println("expected: "+Arrays.toString(expectedBytes));
+//		System.out.println("actual:   "+Arrays.toString(actualBytes));
 		assertTrue(Arrays.equals(expectedBytes, actualBytes));
 	}
 
 	@Test
 	public void testGenerateMAC() throws Exception {
-		String dataString = "0x81, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0x5d, 0x5c, 0xa9, 0xf3, 0x20, 0x30, 0x34, 0x3a, 0x34, 0x32, 0x3a, 0x31, 0x33";
 		String ciphertextString = "0x5d, 0x5c, 0xa9, ";
 		String ivString = " 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xf3, 0x68, 0x41, 0xd7, 0x37, 0xf6, 0xa5, 0x94";
 		String expectedByteString = "  0xeb, 0x3d, 0xd5, 0x8c, 0x1e, 0x4c, 0xde, 0x1e";
-		byte[] data = stringToBytes(dataString);
-		byte[] iv = stringToBytes(ivString);
-		byte[] ciphertext = stringToBytes(ciphertextString);
-		byte[] expectedBytes = stringToBytes(expectedByteString);
-		System.out.println(data.length);
+		byte[] iv = ZWaveSecurityCommandClass.hexStringToByteArray(ivString);
+		byte[] ciphertext = ZWaveSecurityCommandClass.hexStringToByteArray(ciphertextString);
+		byte[] expectedBytes = ZWaveSecurityCommandClass.hexStringToByteArray(expectedByteString);
 
 		ZWaveNode node = Mockito.mock(ZWaveNode.class);
 		Mockito.when(node.getNodeInitializationStage()).thenReturn(ZWaveNodeInitStage.DONE);
@@ -77,8 +76,8 @@ public class ZWaveSecurityCommandClassTest extends TestCase {
 		ZWaveEndpoint endpoint = Mockito.mock(ZWaveEndpoint.class);
 		ZWaveSecurityCommandClass scc = new ZWaveSecurityCommandClass(node, controller, endpoint);
 		byte[] actualBytes = scc.generateMAC(ZWaveSecurityCommandClass.SECURITY_MESSAGE_ENCAP, ciphertext, (byte)0x01,  (byte)0x02, iv);
-		System.out.println("expected: "+Arrays.toString(expectedBytes));
-		System.out.println("actual:   "+Arrays.toString(actualBytes));
+//		System.out.println("expected: "+Arrays.toString(expectedBytes));
+//		System.out.println("actual:   "+Arrays.toString(actualBytes));
 		assertTrue(Arrays.equals(expectedBytes, actualBytes));
 	}
 
@@ -148,7 +147,7 @@ public class ZWaveSecurityCommandClassTest extends TestCase {
 		String expectedByteString = "0x01, 0x00, 0x00, 0x13, 0x02, 0x16, 0x98, 0x81, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0x80, 0x0a, 0x6e, 0x6d, 0xd9, 0x5a, 0xc6, 0xf8, 0xa7, 0x0a, 0xe1, 0x71, 0x25";
 		// The header and footer data we see in OZW log is different than what we capture from OpenHab, so factor out the difference
 		// remove the 1st 5 hex and
-		byte[] expectedBytes = stringToBytes(expectedByteString.substring(26, 170));
+		byte[] expectedBytes = ZWaveSecurityCommandClass.hexStringToByteArray(expectedByteString.substring(26, 170));
 
 		// Setup - create a SerialMessage to be encrypted
 		byte SECURITY_COMMANDS_SUPPORTED_GET = 0x02;
@@ -175,7 +174,7 @@ public class ZWaveSecurityCommandClassTest extends TestCase {
 
 		scc.queueMessageForEncapsulation(messageToEncapsulate);
 		// Trigger the encapsulation by sending  byte SECURITY_NONCE_REPORT = (byte) 0x80;
-		SerialMessage nonceReportMessage = new SerialMessage(stringToBytes(nonceReportString));
+		SerialMessage nonceReportMessage = new SerialMessage(ZWaveSecurityCommandClass.hexStringToByteArray(nonceReportString));
 		scc.handleApplicationCommandRequest(nonceReportMessage, 4, 1);
 
 		Thread.sleep(500); // Let the nonceReportMessage trigger the encapsulate and sending of the supported get message
@@ -185,8 +184,8 @@ public class ZWaveSecurityCommandClassTest extends TestCase {
 		SerialMessage outgoingMesage = captor.getValue();
 		byte[] resultBytes = outgoingMesage.getMessagePayload();
 
-		System.out.println(toHex("expected" ,expectedBytes));
-		System.out.println(toHex("actual", resultBytes));
+//		System.out.println(toHex("expected" ,expectedBytes));
+//		System.out.println(toHex("actual", resultBytes));
 		assertTrue(Arrays.equals(expectedBytes, resultBytes));
 	}
 
@@ -320,7 +319,7 @@ public class ZWaveSecurityCommandClassTest extends TestCase {
 		String expectedByteString = "0x01, 0x2d, 0x00, 0x13, 0x02, 0x26, 0x98, 0x81, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0x7c, 0x26, 0x1c, 0x2a, 0x1a, 0xca, 0xa5, 0x26, 0x5c, 0x78, 0x8c, 0xa7, 0x9b, 0x5a, 0x1b, 0x8f, 0xf0, 0xf1, 0xd7, 0x96, 0x25, 0xb7, 0x8c, 0x11, 0x67, 0x64, 0x89, 0xc5, 0x25, 0x0a, 0xb6";
 		// The header and footer data we see in OZW log is different than what we capture from OpenHab, so factor out the difference
 		int expectedByteStringLength = expectedByteString.length();
-		byte[] expectedBytes = stringToBytes(expectedByteString.substring(26, expectedByteStringLength - 16));
+		byte[] expectedBytes = ZWaveSecurityCommandClass.hexStringToByteArray(expectedByteString.substring(26, expectedByteStringLength - 16));
 
 		// Scheme0 network key is a key of all zeros
 		ZWaveSecurityCommandClass.setRealNetworkKey("0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00");
@@ -335,7 +334,7 @@ public class ZWaveSecurityCommandClassTest extends TestCase {
 		baos.write(18);
 		baos.write((byte) CommandClass.SECURITY.getKey());
 		baos.write(SECURITY_NETWORK_KEY_SET);
-		baos.write(stringToBytes("0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10"));
+		baos.write(ZWaveSecurityCommandClass.hexStringToByteArray("0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10"));
 		messageToEncapsulate.setMessagePayload(baos.toByteArray());
 
 		// Create the security class
@@ -350,7 +349,7 @@ public class ZWaveSecurityCommandClassTest extends TestCase {
 
 		scc.queueMessageForEncapsulation(messageToEncapsulate);
 		// Trigger the encapsulation by sending  byte SECURITY_NONCE_REPORT = (byte) 0x80;
-		SerialMessage nonceReportMessage = new SerialMessage(stringToBytes(nonceReportString));
+		SerialMessage nonceReportMessage = new SerialMessage(ZWaveSecurityCommandClass.hexStringToByteArray(nonceReportString));
 		scc.handleApplicationCommandRequest(nonceReportMessage, 4, 1);
 
 		Thread.sleep(500); // Let the nonceReportMessage trigger the encapsulate and sending of the supported get message
@@ -360,8 +359,8 @@ public class ZWaveSecurityCommandClassTest extends TestCase {
 		SerialMessage outgoingMesage = captor.getValue();
 		byte[] actualBytes = outgoingMesage.getMessagePayload();
 
-		System.out.println(toHex("expected" ,expectedBytes));
-		System.out.println(toHex("actual", actualBytes));
+//		System.out.println(toHex("expected" ,expectedBytes));
+//		System.out.println(toHex("actual", actualBytes));
 		assertTrue(Arrays.equals(expectedBytes, actualBytes));
 	}
 
@@ -388,14 +387,14 @@ public class ZWaveSecurityCommandClassTest extends TestCase {
 18:30:35.365 [ZWaveReceiveThread] [DEBUG] [eController$ZWaveReceiveThread:1473 ] - Receive queue ADD: Length=1
 	 * @throws Exception
 	 */
-	 // TODO: fix and reenable as some bug fixes in our code invalidated the OZW test data
+	 // TODO: DB fix and reenable as some bug fixes in our code invalidated the OZW test data
 	public void offtestDecryptPayload() throws Exception {
 		// Setup
 		ZWaveSecurityCommandClass.setRealNetworkKey("0xF2, 0x21, 0x4A, 0x79, 0x93, 0xBD, 0xD7, 0xF6, 0xAA, 0xB6, 0x11, 0x2C, 0x5A, 0xAE, 0x23, 0xB3");
 		String receivedByteString = "01 1D 00 04 00 02 17 98 81 D2 51 75 6A BF 39 4C 02 59 84 25 B9 AA 53 B1 8A 32 CD B8 29 7C 2F ";
-		byte[] receivedBytes = stringToBytes(receivedByteString);
+		byte[] receivedBytes = ZWaveSecurityCommandClass.hexStringToByteArray(receivedByteString);
 		String expectedByteString = "0x00, 0x98, 0x07";
-		byte[] expectedBytes = stringToBytes(expectedByteString);
+		byte[] expectedBytes = ZWaveSecurityCommandClass.hexStringToByteArray(expectedByteString);
 		// Create the security class
 		ZWaveNode node = Mockito.mock(ZWaveNode.class);
 		Mockito.when(node.getNodeInitializationStage()).thenReturn(ZWaveNodeInitStage.DONE);
@@ -415,7 +414,7 @@ public class ZWaveSecurityCommandClassTest extends TestCase {
 
 		// Test
 		assertNotNull("MAC verify probably failed", result);
-		System.out.println(toHex("actual", result)); // TODO: remove
+//		System.out.println(toHex("actual", result));
 		assertTrue(Arrays.equals(expectedBytes, result));
 	}
 
@@ -445,20 +444,5 @@ public class ZWaveSecurityCommandClassTest extends TestCase {
 		byte[] result = ZWaveSecurityCommandClass.hexStringToByteArray(hexString);
 		byte[] expected = {-14, 33, 74, 121, -109, -67, -41, -10, -86, -74, 17, 44, 90, -82, 35, -77};
 		assertEquals(Arrays.toString(expected), Arrays.toString(result));
-	}
-
-	private byte[] stringToBytes(String byteString) {
-		String ourString = byteString.replace(",", "");
-		ourString = ourString.replace(" ", "");
-		ourString = ourString.replace("0x", "");
-		return javax.xml.bind.DatatypeConverter.parseHexBinary(ourString);
-	}
-
-	private static String toHex(String description, byte[] bytes) {
-		StringBuilder buf = new StringBuilder(description).append(": ");
-		for (int i = 0; i < bytes.length; i++) {
-			buf.append(String.format("0x%02x, ", (bytes[i] & 0xff)));
-		}
-		return buf.toString();
 	}
 }
