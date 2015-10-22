@@ -571,12 +571,12 @@ public class ZWaveController {
 		if (node != null) {
 			// Does this message need to be security encapsulated?
 			if(node.doesMessageRequireSecurityEncapsulation(serialMessage)) {
-			ZWaveSecurityCommandClass securityCommandClass = (ZWaveSecurityCommandClass) node.getCommandClass(CommandClass.SECURITY);
-			securityCommandClass.queueMessageForEncapsulation(serialMessage);
-			// the above call will call enqueue again with the <b>encapsulated<b/> message,
-			// so we discard this one without putting it on the queue
-			return;
-		}
+				ZWaveSecurityCommandClass securityCommandClass = (ZWaveSecurityCommandClass) node.getCommandClass(CommandClass.SECURITY);
+				securityCommandClass.queueMessageForEncapsulation(serialMessage);
+				// the above call will call enqueue again with the <b>encapsulated<b/> message,
+				// so we discard this one without putting it on the queue
+				return;
+			}
 
 	    	// Keep track of the number of packets sent to this device
 	    	node.incrementSendCount();
@@ -589,8 +589,8 @@ public class ZWaveController {
 				if (wakeUpCommandClass != null && !wakeUpCommandClass.processOutgoingWakeupMessage(serialMessage)) {
 					return;
 				}
-			}
-    	}
+	    	}
+		}
 
 		// Add the message to the queue
 		this.sendQueue.add(serialMessage);
@@ -951,12 +951,12 @@ public class ZWaveController {
     	// This is required in case the Application Message is received from the SendData ACK
     	serialMessage.setAckRequired();
 
-	// ZWaveSecurityCommandClass needs to set it's own transmit options.  Only set them here if not already done
-	if(!serialMessage.areTransmitOptionsSet()) {
-		serialMessage.setTransmitOptions(TRANSMIT_OPTION_ACK | TRANSMIT_OPTION_AUTO_ROUTE | TRANSMIT_OPTION_EXPLORE);
-	}
-	serialMessage.setCallbackId(getCallbackId());
-	this.enqueue(serialMessage);
+		// ZWaveSecurityCommandClass needs to set it's own transmit options.  Only set them here if not already done
+		if(!serialMessage.areTransmitOptionsSet()) {
+			serialMessage.setTransmitOptions(TRANSMIT_OPTION_ACK | TRANSMIT_OPTION_AUTO_ROUTE | TRANSMIT_OPTION_EXPLORE);
+		}
+		serialMessage.setCallbackId(getCallbackId());
+		this.enqueue(serialMessage);
 	}
 
 	/**
