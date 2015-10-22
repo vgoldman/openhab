@@ -101,19 +101,19 @@ public class ZWaveDoorLockCommandClass extends ZWaveCommandClass
 				int lockTimeoutMinutes = serialMessage.getMessagePayloadByte(offset + 4);
 				int lockTimeoutSeconds = serialMessage.getMessagePayloadByte(offset + 5);
 
-				logger.debug(String.format("NODE %d: Door Lock report - lockState = 0x%02x," +
+				logger.info(String.format("NODE %d: Door Lock report - lockState = 0x%02x," +
 						"handlesMode = 0x%02x, doorCondition = 0x%02x, lockTimeoutMinutes = 0x%02x," +
 						"lockTimeoutSeconds = 0x%02x", this.getNode().getNodeId(), lockState, handlesMode,
 						doorCondition, lockTimeoutMinutes, lockTimeoutSeconds));
-
+				
 				// TODO: DB handle other events too?
 				ZWaveDoorLockValueEvent zEvent = new ZWaveDoorLockValueEvent(this.getNode().getNodeId(),
 						endpoint, lockState);
 				this.getController().notifyEventListeners(zEvent);
 				break;
 			default:
-				logger.warn(String.format("Unsupported Command 0x%02X for command class %s (0x%02X).",
-					command,
+				logger.warn(String.format("NODE %d: Unsupported Command 0x%02X for command class %s (0x%02X).",
+					this.getNode().getNodeId(), command,
 					this.getCommandClass().getLabel(),
 					this.getCommandClass().getKey()));
 				break;
@@ -141,7 +141,6 @@ public class ZWaveDoorLockCommandClass extends ZWaveCommandClass
 	@Override
 	public SerialMessage setValueMessage(int value) {
 		logger.debug("NODE {}: Creating new message for application command DOORLOCK_SET", this.getNode().getNodeId());
-
 		SerialMessage result = new SerialMessage(this.getNode().getNodeId(), SerialMessageClass.SendData,
 				SerialMessageType.Request, SerialMessageClass.SendData, SerialMessagePriority.Set);
 		byte[] newPayload = {
