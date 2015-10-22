@@ -38,7 +38,7 @@ import org.slf4j.LoggerFactory;
 public class ZWaveDoorLockConverter extends ZWaveCommandClassConverter<ZWaveDoorLockCommandClass> {
 
 	private static final Logger logger = LoggerFactory.getLogger(ZWaveDoorLockConverter.class);
-	private static final int REFRESH_INTERVAL = 10; // refresh interval in seconds for the binary switch;
+	private static final int REFRESH_INTERVAL = 0;
 
 	/**
 	 * Constructor. Creates a new instance of the {@link ZWaveDoorLockConverter} class.
@@ -49,9 +49,10 @@ public class ZWaveDoorLockConverter extends ZWaveCommandClassConverter<ZWaveDoor
 		super(controller, eventPublisher);
 
 		// State and commmand converters used by this converter.
-		this.addStateConverter(new BinaryDecimalTypeConverter());
 		this.addStateConverter(new IntegerOnOffTypeConverter());
-		this.addStateConverter(new IntegerOpenClosedTypeConverter());
+		// For door locks, 0xFF=secured and 0x00=unsecured.  Override the default
+		// IntegerOpenClosedTypeConverter behavior so secured=closed and open=unsecured
+		this.addStateConverter(new IntegerOpenClosedTypeConverter(0xFF));
 		this.addCommandConverter(new BinaryOnOffCommandConverter());
 	}
 
@@ -105,6 +106,10 @@ public class ZWaveDoorLockConverter extends ZWaveCommandClassConverter<ZWaveDoor
 
 		if (command instanceof State)
 			this.getEventPublisher().postUpdate(item.getName(), (State)command);
+
+		// Queue a status message since we just sent a door lock command
+		serialMessage = node.encapsulate(commandClass.getValueMessage(), commandClass, endpointId);
+		this.getController().sendData(serialMessage);
 	}
 
 	/**
