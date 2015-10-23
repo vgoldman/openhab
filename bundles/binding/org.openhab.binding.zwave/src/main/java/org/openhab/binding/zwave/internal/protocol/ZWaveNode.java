@@ -81,9 +81,9 @@ public class ZWaveNode {
 	private boolean routing;
 	private String healState;
 
-	private Map<CommandClass, ZWaveCommandClass> supportedCommandClasses = new HashMap<CommandClass, ZWaveCommandClass>();
-	private Set<CommandClass> securedCommandClasses = new HashSet<CommandClass>();
-	private List<Integer> nodeNeighbors = new ArrayList<Integer>();
+	private final Map<CommandClass, ZWaveCommandClass> supportedCommandClasses = new HashMap<CommandClass, ZWaveCommandClass>();
+	private final Set<CommandClass> securedCommandClasses = new HashSet<CommandClass>();
+	private final List<Integer> nodeNeighbors = new ArrayList<Integer>();
 	private Date lastSent = null;
 	private Date lastReceived = null;
 
@@ -246,7 +246,7 @@ public class ZWaveNode {
 
 		// Don't alert state changes while we're still initialising
 		if(nodeStageAdvancer.isInitializationComplete() == true) {
-			ZWaveEvent zEvent = new ZWaveNodeStatusEvent(this.getNodeId(), ZWaveNodeState.DEAD);
+			final ZWaveEvent zEvent = new ZWaveNodeStatusEvent(this.getNodeId(), ZWaveNodeState.DEAD);
 			controller.notifyEventListeners(zEvent);
 		}
 		else {
@@ -415,12 +415,12 @@ public class ZWaveNode {
 	 * @return the version
 	 */
 	public String getApplicationVersion() {
-		ZWaveVersionCommandClass versionCmdClass = (ZWaveVersionCommandClass) this.getCommandClass(CommandClass.VERSION);
+		final ZWaveVersionCommandClass versionCmdClass = (ZWaveVersionCommandClass) this.getCommandClass(CommandClass.VERSION);
 		if(versionCmdClass == null) {
 			return "0.0";
 		}
 
-		String appVersion = versionCmdClass.getApplicationVersion();
+		final String appVersion = versionCmdClass.getApplicationVersion();
 		if(appVersion == null) {
 			logger.trace("NODE {}: App version requested but version is unknown", this.getNodeId());
 			return "0.0";
@@ -522,7 +522,7 @@ public class ZWaveNode {
 	 */
 	public void addCommandClass(ZWaveCommandClass commandClass)
 	{
-		CommandClass key = commandClass.getCommandClass();
+		final CommandClass key = commandClass.getCommandClass();
 
 		if (!supportedCommandClasses.containsKey(key)) {
 			logger.debug("NODE {}: Adding command class {} to the list of supported command classes.", nodeId, commandClass.getCommandClass().getLabel());
@@ -566,22 +566,22 @@ public class ZWaveNode {
 			return getCommandClass(commandClass);
 		}
 
-		ZWaveMultiInstanceCommandClass multiInstanceCommandClass = (ZWaveMultiInstanceCommandClass) supportedCommandClasses.get(CommandClass.MULTI_INSTANCE);
+		final ZWaveMultiInstanceCommandClass multiInstanceCommandClass = (ZWaveMultiInstanceCommandClass) supportedCommandClasses.get(CommandClass.MULTI_INSTANCE);
 		if (multiInstanceCommandClass == null) {
 			return null;
 		}
 		else if (multiInstanceCommandClass.getVersion() == 2) {
-			ZWaveEndpoint endpoint = multiInstanceCommandClass.getEndpoint(endpointId);
+			final ZWaveEndpoint endpoint = multiInstanceCommandClass.getEndpoint(endpointId);
 
 			if (endpoint != null) {
-				ZWaveCommandClass result = endpoint.getCommandClass(commandClass);
+				final ZWaveCommandClass result = endpoint.getCommandClass(commandClass);
 				if (result != null) {
 					return result;
 				}
 			}
 		}
 		else if (multiInstanceCommandClass.getVersion() == 1) {
-			ZWaveCommandClass result = getCommandClass(commandClass);
+			final ZWaveCommandClass result = getCommandClass(commandClass);
 			if (result != null && endpointId <= result.getInstances()) {
 				return result;
 			}
@@ -627,19 +627,19 @@ public class ZWaveNode {
 		if (multiInstanceCommandClass != null) {
 			logger.debug("NODE {}: Encapsulating message, instance / endpoint {}", this.getNodeId(), endpointId);
 			switch (multiInstanceCommandClass.getVersion()) {
-				case 2:
-					if (commandClass.getEndpoint() != null) {
-						serialMessage = multiInstanceCommandClass.getMultiChannelEncapMessage(serialMessage, commandClass.getEndpoint());
-						return serialMessage;
-					}
-					break;
-				case 1:
-				default:
-					if (commandClass.getInstances() >= endpointId) {
-						serialMessage = multiInstanceCommandClass.getMultiInstanceEncapMessage(serialMessage, endpointId);
-						return serialMessage;
-					}
-					break;
+			case 2:
+				if (commandClass.getEndpoint() != null) {
+					serialMessage = multiInstanceCommandClass.getMultiChannelEncapMessage(serialMessage, commandClass.getEndpoint());
+					return serialMessage;
+				}
+				break;
+			case 1:
+			default:
+				if (commandClass.getInstances() >= endpointId) {
+					serialMessage = multiInstanceCommandClass.getMultiInstanceEncapMessage(serialMessage, endpointId);
+					return serialMessage;
+				}
+				break;
 			}
 		}
 
@@ -671,42 +671,42 @@ public class ZWaveNode {
 		logger.debug("NODE {}: Update return routes", nodeId);
 
 		// Create a list of nodes this device is configured to talk to
-    	ArrayList<Integer> routedNodes = new ArrayList<Integer>();
+		final ArrayList<Integer> routedNodes = new ArrayList<Integer>();
 
-    	// Only update routes if this is a routing node
-    	if(isRouting() == false) {
-    		logger.debug("NODE {}: Node is not a routing node. No routes can be set.", nodeId);
-    		return null;
-    	}
+		// Only update routes if this is a routing node
+		if(isRouting() == false) {
+			logger.debug("NODE {}: Node is not a routing node. No routes can be set.", nodeId);
+			return null;
+		}
 
-    	// Get the number of association groups reported by this node
-		ZWaveAssociationCommandClass associationCmdClass = (ZWaveAssociationCommandClass) getCommandClass(CommandClass.ASSOCIATION);
+		// Get the number of association groups reported by this node
+		final ZWaveAssociationCommandClass associationCmdClass = (ZWaveAssociationCommandClass) getCommandClass(CommandClass.ASSOCIATION);
 		if(associationCmdClass == null) {
-    		logger.debug("NODE {}: Node has no association class. No routes can be set.", nodeId);
-    		return null;
-    	}
+			logger.debug("NODE {}: Node has no association class. No routes can be set.", nodeId);
+			return null;
+		}
 
-		int groups = associationCmdClass.getGroupCount();
+		final int groups = associationCmdClass.getGroupCount();
 		if(groups != 0) {
 			// Loop through each association group and add the node ID to the list
 			for(int group = 1; group <= groups; group++) {
-				for(Integer associationNodeId : associationCmdClass.getGroupMembers(group)) {
+				for(final Integer associationNodeId : associationCmdClass.getGroupMembers(group)) {
 					routedNodes.add(associationNodeId);
 				}
 			}
 		}
 
 		// Add the wakeup destination node to the list for battery devices
-		ZWaveWakeUpCommandClass wakeupCmdClass = (ZWaveWakeUpCommandClass) getCommandClass(CommandClass.WAKE_UP);
+		final ZWaveWakeUpCommandClass wakeupCmdClass = (ZWaveWakeUpCommandClass) getCommandClass(CommandClass.WAKE_UP);
 		if(wakeupCmdClass != null) {
-			Integer wakeupNodeId = wakeupCmdClass.getTargetNodeId();
+			final Integer wakeupNodeId = wakeupCmdClass.getTargetNodeId();
 			routedNodes.add(wakeupNodeId);
 		}
 
 		// Are there any nodes to which we need to set routes?
 		if(routedNodes.size() == 0) {
-    		logger.debug("NODE {}: No return routes required.", nodeId);
-    		return null;
+			logger.debug("NODE {}: No return routes required.", nodeId);
+			return null;
 		}
 
 		return routedNodes;
@@ -803,7 +803,7 @@ public class ZWaveNode {
 		logger.info("NODE {}:  Setting secured command classes for node with {}", this.getNodeId(), SerialMessage.bb2hex(data));
 		boolean afterMark = false;
 		securedCommandClasses.clear(); // reset the existing list
-		for(byte aByte : data) {
+		for(final byte aByte : data) {
 			// TODO: DB support extended commandClass format by checking for 0xF1 - 0xFF
 			if(ZWaveSecurityCommandClass.bytesAreEqual(aByte, ZWaveSecurityCommandClass.COMMAND_CLASS_MARK)) {
 				/**
@@ -816,7 +816,7 @@ public class ZWaveNode {
 			}
 
 			// Check if this is a commandClass that is already registered with the node
-			CommandClass commandClass = CommandClass.getCommandClass((aByte & 0xFF));
+			final CommandClass commandClass = CommandClass.getCommandClass((aByte & 0xFF));
 			if(commandClass == null) {
 				// Not supported by OpenHab
 				logger.error("NODE {}:  setSecuredClasses requested secure " +
@@ -834,7 +834,7 @@ public class ZWaveNode {
 				} else {
 					if(!this.supportsCommandClass(commandClass)) {
 						logger.info("NODE {}:  Adding secured command class to supported that wasn't in original list {}", this.getNodeId(), commandClass.getLabel());
-						ZWaveCommandClass classInstance = ZWaveCommandClass.getInstance((aByte & 0xFF), this, controller);
+						final ZWaveCommandClass classInstance = ZWaveCommandClass.getInstance((aByte & 0xFF), this, controller);
 						if(classInstance != null) {
 							addCommandClass(classInstance);
 						}
@@ -846,8 +846,8 @@ public class ZWaveNode {
 		}
 		if(logger.isInfoEnabled()) {
 			// show which classes are still insecure after the update
-			StringBuilder buf = new StringBuilder("NODE "+this.getNodeId()+": After update, INSECURE command classes are: ");
-			for(ZWaveCommandClass zwCommandClass : this.getCommandClasses()) {
+			final StringBuilder buf = new StringBuilder("NODE "+this.getNodeId()+": After update, INSECURE command classes are: ");
+			for(final ZWaveCommandClass zwCommandClass : this.getCommandClasses()) {
 				if(!securedCommandClasses.contains(zwCommandClass.getCommandClass())) {
 					buf.append(zwCommandClass.getCommandClass()+", ");
 				}
@@ -868,8 +868,8 @@ public class ZWaveNode {
 			// Does this node support security at all?
 			result = false;
 		} else {
-			int commandClassCode = (byte) serialMessage.getMessagePayloadByte(2) & 0xFF;
-			CommandClass commandClassOfMessage = CommandClass.getCommandClass(commandClassCode);
+			final int commandClassCode = (byte) serialMessage.getMessagePayloadByte(2) & 0xFF;
+			final CommandClass commandClassOfMessage = CommandClass.getCommandClass(commandClassCode);
 			logger.debug(String.format("NODE %s: doesMessageRequireSecurityEncapsulation commandClassOfMessage=%s", getNodeId(), commandClassOfMessage));
 			if(commandClassOfMessage == null) {
 				// not sure how we would ever get here
@@ -878,7 +878,7 @@ public class ZWaveNode {
 				result = false;
 			} else if(CommandClass.SECURITY == commandClassOfMessage) {
 				// CommandClass.SECURITY is a special case because only <b>some</b> commands get encrypted
-				Byte messageCode = Byte.valueOf((byte) (serialMessage.getMessagePayloadByte(3) & 0xFF));
+				final Byte messageCode = Byte.valueOf((byte) (serialMessage.getMessagePayloadByte(3) & 0xFF));
 				result = ZWaveSecurityCommandClass.doesCommandsRequireSecurityEncapsulation(messageCode);
 				logger.trace(String.format("NODE %s: Does Security message 0x%02X require security encapsulation? %s",
 						getNodeId(), messageCode, result));
@@ -892,14 +892,16 @@ public class ZWaveNode {
 					// Certain messages must always be sent securely
 					if(commandClassOfMessage == CommandClass.DOOR_LOCK ||
 							commandClassOfMessage == CommandClass.USER_CODE) { // TODO: DB what else?
-						logger.warn("NODE {}: CommandClass {} is not marked as secure but should be, forcing secure", 
+						logger.warn("NODE {}: CommandClass {} is not marked as secure but should be, forcing secure",
 								getNodeId(), commandClassOfMessage);
 						return true;
 					}
 				}
 			}
 		}
-		logger.debug("NODE: {} Incoming message {} required security encapsulation={}", getNodeId(), serialMessage, result);
+		logger.debug(
+				"NODE {}: Incoming message {} required security encapsulation={}",
+				getNodeId(), serialMessage, result);
 		return result;
 	}
 
