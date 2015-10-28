@@ -858,11 +858,7 @@ public class ZWaveNode {
 
 	public boolean doesMessageRequireSecurityEncapsulation(SerialMessage serialMessage) {
 		boolean result = false;
-		logger.trace(String.format("NODE %s: Does message require security encapsulation: %s",
-				getNodeId(), serialMessage));
 		if(serialMessage.getMessageClass() != SerialMessageClass.SendData) {
-			logger.trace(String.format("NODE %s: Message class is not SendData, so security not required: %s",
-					getNodeId(), serialMessage.getMessageClass()));
 			result = false;
 		} else if(!supportedCommandClasses.containsKey(CommandClass.SECURITY)) {
 			// Does this node support security at all?
@@ -899,8 +895,7 @@ public class ZWaveNode {
 				}
 			}
 		}
-		logger.debug(
-				"NODE {}: Incoming message {} required security encapsulation={}",
+		logger.debug("NODE {}: message {} requires security encapsulation={}",
 				getNodeId(), serialMessage, result);
 		return result;
 	}
