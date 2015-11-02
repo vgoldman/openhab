@@ -172,7 +172,7 @@ public class ZWaveSecurityCommandClassTest extends TestCase {
 		ZWaveEndpoint endpoint = Mockito.mock(ZWaveEndpoint.class);
 		ZWaveSecurityCommandClass scc = new ZWaveSecurityCommandClass(node, controller, endpoint);
 
-		scc.queueMessageForEncapsulation(messageToEncapsulate);
+		scc.queueMessageForEncapsulationAndTransmission(messageToEncapsulate);
 		// Trigger the encapsulation by sending  byte SECURITY_NONCE_REPORT = (byte) 0x80;
 		SerialMessage nonceReportMessage = new SerialMessage(ZWaveSecurityCommandClass.hexStringToByteArray(nonceReportString));
 		scc.handleApplicationCommandRequest(nonceReportMessage, 4, 1);
@@ -347,7 +347,7 @@ public class ZWaveSecurityCommandClassTest extends TestCase {
 		ZWaveEndpoint endpoint = Mockito.mock(ZWaveEndpoint.class);
 		ZWaveSecurityCommandClass scc = new ZWaveSecurityCommandClass(node, controller, endpoint);
 
-		scc.queueMessageForEncapsulation(messageToEncapsulate);
+		scc.queueMessageForEncapsulationAndTransmission(messageToEncapsulate);
 		// Trigger the encapsulation by sending  byte SECURITY_NONCE_REPORT = (byte) 0x80;
 		SerialMessage nonceReportMessage = new SerialMessage(ZWaveSecurityCommandClass.hexStringToByteArray(nonceReportString));
 		scc.handleApplicationCommandRequest(nonceReportMessage, 4, 1);
