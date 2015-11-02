@@ -15,7 +15,9 @@ import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveCommandClas
  * ZWave security protocol that certain messages be "security encapsulated"
  * (that is, encrypted and signed).  The first step to send a {@link SerialMessage}
  * securely is break down the payload into one or more security payload frames
- * that will then be queued up in {@link ZWaveSecurityCommandClass}
+ * that will then be queued up in {@link ZWaveSecurityCommandClass} to await
+ * {@link ZWaveSecurityCommandClass#SECURITY_NONCE_REPORT} messages from the
+ * device.
  *
  * @see {@link ZWaveSecurityCommandClass#queueMessageForEncapsulation}
  * @author Dave Badia
@@ -47,13 +49,14 @@ public class ZWaveSecurityPayloadFrame {
 	 * queue if no nonce reply has been received
 	 */
 	private final long expirationTime;
-	
+
 	// data fields
 	private final String logMessage;
 	private final int partNumber;
 	private final int totalParts;
 	private final byte sequenceByte;
 	private final byte[] partBytes;
+	private final SerialMessage originalMessage;
 
 	public static List<ZWaveSecurityPayloadFrame> convertToSecurityPayload(ZWaveNode node, SerialMessage messageToEncapsulate) {
 		// We need to start with command class byte, so strip off node ID and length from beginning
@@ -94,6 +97,7 @@ public class ZWaveSecurityPayloadFrame {
 
 	private ZWaveSecurityPayloadFrame(ZWaveNode node, int partNumber, int totalParts,
 			byte[] partBuffer, byte sequenceByte, SerialMessage originalMessage) {
+		this.originalMessage = originalMessage;
 		this.partNumber = partNumber;
 		this.partBytes = partBuffer;
 		this.totalParts = totalParts;
@@ -118,7 +122,7 @@ public class ZWaveSecurityPayloadFrame {
 	private ZWaveSecurityPayloadFrame(ZWaveNode node, byte[] messageBuffer, SerialMessage originalMessage) {
 		this(node, 1, 1, messageBuffer, SEQUENCE_BYTE_FOR_SINGLE_FRAME_MESSAGE, originalMessage);
 	}
-	
+
 	protected int getTotalParts() {
 		return totalParts;
 	}
@@ -152,5 +156,7 @@ public class ZWaveSecurityPayloadFrame {
 		return expirationTime;
 	}
 
-
+	protected SerialMessage getOriginalMessage() {
+		return originalMessage;
+	}
 }

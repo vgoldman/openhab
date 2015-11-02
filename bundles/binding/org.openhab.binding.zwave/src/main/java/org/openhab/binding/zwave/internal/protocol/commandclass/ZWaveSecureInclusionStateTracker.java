@@ -31,13 +31,13 @@ class ZWaveSecureInclusionStateTracker {
 	 */
 	private final List<Byte> INIT_COMMAND_ORDER_LIST =
 			Arrays.asList(new Byte[]{
-		ZWaveSecurityCommandClass.SECURITY_SCHEME_GET,
-		ZWaveSecurityCommandClass.SECURITY_SCHEME_REPORT,
-		ZWaveSecurityCommandClass.SECURITY_NETWORK_KEY_SET,
-		ZWaveSecurityCommandClass.SECURITY_NETWORK_KEY_VERIFY,
-		ZWaveSecurityCommandClass.SECURITY_COMMANDS_SUPPORTED_GET,
-		ZWaveSecurityCommandClass.SECURITY_COMMANDS_SUPPORTED_REPORT,
-	});
+					ZWaveSecurityCommandClass.SECURITY_SCHEME_GET,
+					ZWaveSecurityCommandClass.SECURITY_SCHEME_REPORT,
+					ZWaveSecurityCommandClass.SECURITY_NETWORK_KEY_SET,
+					ZWaveSecurityCommandClass.SECURITY_NETWORK_KEY_VERIFY,
+					ZWaveSecurityCommandClass.SECURITY_COMMANDS_SUPPORTED_GET,
+					ZWaveSecurityCommandClass.SECURITY_COMMANDS_SUPPORTED_REPORT,
+			});
 
 	private static final boolean HALT_ON_IMPROPER_ORDER = true;
 
@@ -50,9 +50,18 @@ class ZWaveSecureInclusionStateTracker {
 	private SerialMessage nextRequestMessage = null;
 
 	/**
+	 * The last {@link SerialMessage} that was given to {@link ZWaveNodeStageAdvancer}
+	 * when it called {@link ZWaveSecurityCommandClass#initialize(boolean)}.   Used
+	 * in cases where we need to resend the last message
+	 */
+	private SerialMessage lastRequestMessage = null;
+
+	private long lastMessageHandedBackAt = 0;
+
+	/**
 	 * Lock object that will be used for synchronization
 	 */
-	private Object nextMessageLock = new Object();
+	private final Object nextMessageLock = new Object();
 
 	private String errorState = null;
 
@@ -122,7 +131,9 @@ class ZWaveSecureInclusionStateTracker {
 		synchronized(nextMessageLock) {
 			if(nextRequestMessage != null) {
 				SerialMessage message = nextRequestMessage;
+				lastRequestMessage = nextRequestMessage;
 				nextRequestMessage = null;
+				lastMessageHandedBackAt = System.currentTimeMillis();
 				return message;
 			}
 			return null;
@@ -135,5 +146,13 @@ class ZWaveSecureInclusionStateTracker {
 
 	public String getErrorState() {
 		return errorState;
+	}
+
+	protected SerialMessage getLastRequestMessage() {
+		return lastRequestMessage;
+	}
+
+	protected long getLastMessageHandedBackAt() {
+		return lastMessageHandedBackAt;
 	}
 }

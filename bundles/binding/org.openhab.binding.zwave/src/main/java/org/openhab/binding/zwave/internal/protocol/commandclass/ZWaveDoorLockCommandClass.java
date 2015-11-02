@@ -35,7 +35,7 @@ public class ZWaveDoorLockCommandClass extends ZWaveCommandClass
 
 	private static final Logger logger = LoggerFactory.getLogger(ZWaveDoorLockCommandClass.class);
 
-	private static final int DOORLOCK_SET = 0x01;
+	static final int DOORLOCK_SET = 0x01;
 	/**
 	 * Request the state of the door lock, ie {@link #DOORLOCK_REPORT}
 	 */
@@ -105,7 +105,7 @@ public class ZWaveDoorLockCommandClass extends ZWaveCommandClass
 						"handlesMode = 0x%02x, doorCondition = 0x%02x, lockTimeoutMinutes = 0x%02x," +
 						"lockTimeoutSeconds = 0x%02x", this.getNode().getNodeId(), lockState, handlesMode,
 						doorCondition, lockTimeoutMinutes, lockTimeoutSeconds));
-				
+
 				// TODO: DB handle other events too?
 				ZWaveDoorLockValueEvent zEvent = new ZWaveDoorLockValueEvent(this.getNode().getNodeId(),
 						endpoint, lockState);
