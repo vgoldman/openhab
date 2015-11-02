@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.commons.lang.ArrayUtils;
 import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveCommandClass.CommandClass;
+import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveSecurityCommandClass;
 import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveWakeUpCommandClass;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,6 +53,10 @@ public class SerialMessage {
 	private SerialMessageClass messageClass;
 	private SerialMessagePriority priority;
 	private SerialMessageClass expectedReply;
+	/**
+	 * The original message that was encapsulated in {@link ZWaveSecurityCommandClass} encapsulated messages
+	 */
+	private SerialMessage securityEncapsulatedMessage = null;
 
 	private int messageNode = 255;
 
@@ -154,12 +159,12 @@ public class SerialMessage {
 		logger.trace("NODE {}: Message payload = {}", getMessageNode(), SerialMessage.bb2hex(messagePayload));
 	}
 
-    /**
-     * Converts a byte array to a hexadecimal string representation
-     * @param bb the byte array to convert
-     * @return string the string representation
-     */
-    static public String bb2hex(byte[] bb) {
+	/**
+	 * Converts a byte array to a hexadecimal string representation
+	 * @param bb the byte array to convert
+	 * @return string the string representation
+	 */
+	static public String bb2hex(byte[] bb) {
 		StringBuilder result = new StringBuilder();
 		for (int i=0; i<bb.length; i++) {
 			result.append(String.format("%02X ", bb[i]));
@@ -188,9 +193,13 @@ public class SerialMessage {
 	 */
 	@Override
 	public String toString() {
-		return String.format("Message: class = %s (0x%02X), type = %s (0x%02X), payload = %s",
+		StringBuilder buf = new StringBuilder(String.format("Message: class = %s (0x%02X), type = %s (0x%02X), payload = %s, callback id = %d",
 				new Object[] { messageClass, messageClass.key, messageType, messageType.ordinal(),
-				SerialMessage.bb2hex(this.getMessagePayload()) });
+				SerialMessage.bb2hex(this.getMessagePayload()), callbackId }));
+		if(getSecurityEncapsulatedMessage() != null) {
+			buf.append("   encapsulates: ").append(getSecurityEncapsulatedMessage().toString());
+		}
+		return buf.toString();
 	};
 
 	/**
@@ -438,6 +447,22 @@ public class SerialMessage {
 	}
 
 	/**
+	 * @return the original message that was encapsulated, or null if this
+	 * {@link SerialMessage} is not a {@link ZWaveSecurityCommandClass} encapsulated message type
+	 */
+	protected SerialMessage getSecurityEncapsulatedMessage() {
+		return securityEncapsulatedMessage;
+	}
+
+	/**
+	 * Stores the original message that was encapsulated for logging purposes
+	 */
+	public void setSecurityEncapsulatedMessage(
+			SerialMessage securityEncapsulatedMessage) {
+		this.securityEncapsulatedMessage = securityEncapsulatedMessage;
+	}
+
+	/**
 	 * Serial message type enumeration. Indicates whether the message
 	 * is a request or a response.
 	 * @author Jan-Willem Spuij
@@ -636,6 +661,16 @@ public class SerialMessage {
 		 */
 		@Override
 		public int compare(SerialMessage arg0, SerialMessage arg1) {
+			// ZWaveSecurityCommandClass.SECURITY_NONCE_REPORT trumps all
+			boolean arg0NonceReport = ZWaveSecurityCommandClass.isSecurityNonceReportMessage(arg0);
+			boolean arg1NonceReport = ZWaveSecurityCommandClass.isSecurityNonceReportMessage(arg1);
+			if (arg0NonceReport && !arg1NonceReport) {
+				return -1;
+			} else if (arg1NonceReport && !arg0NonceReport) {
+				return 1;
+			} else if (arg0NonceReport && arg1NonceReport) {
+				return 0; // equal
+			}
 
 			boolean arg0Awake = false;
 			boolean arg0Listening = true;
@@ -691,7 +726,7 @@ public class SerialMessage {
 			int res = arg0.priority.compareTo(arg1.priority);
 
 			if (res == 0 && arg0 != arg1) {
-			   res = (arg0.sequenceNumber < arg1.sequenceNumber ? -1 : 1);
+				res = (arg0.sequenceNumber < arg1.sequenceNumber ? -1 : 1);
 			}
 
 			return res;
