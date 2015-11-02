@@ -12,7 +12,6 @@ import java.util.Map;
 
 import org.openhab.binding.zwave.internal.converter.command.BinaryOnOffCommandConverter;
 import org.openhab.binding.zwave.internal.converter.command.ZWaveCommandConverter;
-import org.openhab.binding.zwave.internal.converter.state.BinaryDecimalTypeConverter;
 import org.openhab.binding.zwave.internal.converter.state.IntegerOnOffTypeConverter;
 import org.openhab.binding.zwave.internal.converter.state.IntegerOpenClosedTypeConverter;
 import org.openhab.binding.zwave.internal.converter.state.ZWaveStateConverter;
@@ -62,7 +61,7 @@ public class ZWaveDoorLockConverter extends ZWaveCommandClassConverter<ZWaveDoor
 	 */
 	@Override
 	public SerialMessage executeRefresh(ZWaveNode node,
-		ZWaveDoorLockCommandClass commandClass, int endpointId, Map<String,String> arguments) {
+			ZWaveDoorLockCommandClass commandClass, int endpointId, Map<String,String> arguments) {
 		logger.debug("NODE {}: Generating poll message for {}, endpoint {}", node.getNodeId(), commandClass.getCommandClass().getLabel(), endpointId);
 		return node.encapsulate(commandClass.getValueMessage(), commandClass, endpointId);
 	}
@@ -73,7 +72,8 @@ public class ZWaveDoorLockConverter extends ZWaveCommandClassConverter<ZWaveDoor
 	@Override
 	public void handleEvent(ZWaveCommandClassValueEvent event, Item item, Map<String,String> arguments) {
 		ZWaveStateConverter<?,?> converter = this.getStateConverter(item, event.getValue());
-
+		logger.debug("NODE {}: Converter for for item = {}, event value = {}",
+				event.getNodeId(), item.getName(), event.getValue());
 		if (converter == null) {
 			logger.warn("NODE {}: No converter found for item = {}, endpoint = {}, ignoring event.", event.getNodeId(), item.getName(), event.getEndpoint());
 			return;
