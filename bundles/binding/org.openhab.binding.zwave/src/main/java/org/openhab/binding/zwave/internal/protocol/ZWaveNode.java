@@ -866,19 +866,16 @@ public class ZWaveNode {
 		} else {
 			final int commandClassCode = (byte) serialMessage.getMessagePayloadByte(2) & 0xFF;
 			final CommandClass commandClassOfMessage = CommandClass.getCommandClass(commandClassCode);
-			logger.debug(String.format("NODE %s: doesMessageRequireSecurityEncapsulation commandClassOfMessage=%s", getNodeId(), commandClassOfMessage));
 			if(commandClassOfMessage == null) {
 				// not sure how we would ever get here
-				logger.error(String.format("NODE %s: CommandClass not found for 0x%02X so treating as INSECURE %s", getNodeId(),
+				logger.warn(String.format("NODE %s: CommandClass not found for 0x%02X so treating as INSECURE %s", getNodeId(),
 						commandClassCode, serialMessage));
 				result = false;
 			} else if(CommandClass.SECURITY == commandClassOfMessage) {
 				// CommandClass.SECURITY is a special case because only <b>some</b> commands get encrypted
 				final Byte messageCode = Byte.valueOf((byte) (serialMessage.getMessagePayloadByte(3) & 0xFF));
-				result = ZWaveSecurityCommandClass.doesCommandsRequireSecurityEncapsulation(messageCode);
-				logger.trace(String.format("NODE %s: Does Security message 0x%02X require security encapsulation? %s",
-						getNodeId(), messageCode, result));
-			} else if(commandClassOfMessage == CommandClass.NO_OPERATION) {
+				result = ZWaveSecurityCommandClass.doesCommandRequireSecurityEncapsulation(messageCode);
+			} else if(commandClassOfMessage == CommandClass.NO_OPERATION) {  // TODO: DB
 				// On controller startup, PING seems to fail whenever it's encrypted, so don't
 				// TODO: DB try again
 				result = false;
@@ -890,13 +887,14 @@ public class ZWaveNode {
 							commandClassOfMessage == CommandClass.USER_CODE) { // TODO: DB what else?
 						logger.warn("NODE {}: CommandClass {} is not marked as secure but should be, forcing secure",
 								getNodeId(), commandClassOfMessage);
-						return true;
+						result = true;
 					}
 				}
 			}
+			if(result) {
+				logger.trace("NODE {}: Message {} requires security encapsulation", getNodeId(), serialMessage);
+			}
 		}
-		logger.debug("NODE {}: message {} requires security encapsulation={}",
-				getNodeId(), serialMessage, result);
 		return result;
 	}
 
