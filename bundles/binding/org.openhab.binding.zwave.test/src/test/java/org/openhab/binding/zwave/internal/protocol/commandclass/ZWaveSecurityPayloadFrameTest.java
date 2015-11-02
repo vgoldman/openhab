@@ -108,7 +108,7 @@ public class ZWaveSecurityPayloadFrameTest extends TestCase {
 		assertEquals(2, result.getTotalParts());
 		assertEquals(2, result.getPart());
 		assertEquals(48, result.getSequenceByte());
-		assertEquals(5, result.getLength()); // TODO: DB is this right?
+		assertEquals(5, result.getLength());
 		Assert.assertArrayEquals(new byte[]{0x29, 0x2A, 0x2B, 0x2C, 0x2D}, result.getMessageBytes());
 		
 		logMessage = result.getLogMessage();
