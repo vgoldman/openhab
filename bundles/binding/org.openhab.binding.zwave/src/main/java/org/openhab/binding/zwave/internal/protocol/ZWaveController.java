@@ -147,7 +147,7 @@ public class ZWaveController {
 	 * communication with the Z-Wave controller stick.
 	 * @throws SerialInterfaceException when a connection error occurs.
 	 */
-	public ZWaveController(final boolean masterController, final boolean isSUC, final String serialPortName, final Integer timeout, final boolean reset)
+	public ZWaveController(boolean masterController, boolean isSUC, String serialPortName, Integer timeout, boolean reset)
 							throws SerialInterfaceException {
 			logger.info("Starting Z-Wave controller");
 			this.masterController = masterController;
@@ -172,7 +172,7 @@ public class ZWaveController {
 	}
 
 	private class InitializeDelayTask extends TimerTask {
-		private final Logger logger = LoggerFactory.getLogger(WatchDogTimerTask.class);
+		private Logger logger = LoggerFactory.getLogger(WatchDogTimerTask.class);
 
 		/**
 		 * {@inheritDoc}
@@ -321,7 +321,7 @@ public class ZWaveController {
 	 * @param serialPortName the port name to open
 	 * @throws SerialInterfaceException when a connection error occurs.
 	 */
-	public void connect(final String serialPortName)
+	public void connect(String serialPortName)
 			throws SerialInterfaceException {
 		logger.info("Connecting to serial port {}", serialPortName);
 		try {
@@ -572,7 +572,7 @@ public class ZWaveController {
 			// Does this message need to be security encapsulated?
 			if(node.doesMessageRequireSecurityEncapsulation(serialMessage)) {
 				ZWaveSecurityCommandClass securityCommandClass = (ZWaveSecurityCommandClass) node.getCommandClass(CommandClass.SECURITY);
-				securityCommandClass.queueMessageForEncapsulation(serialMessage);
+				securityCommandClass.queueMessageForEncapsulationAndTransmission(serialMessage);
 				// the above call will call enqueue again with the <b>encapsulated<b/> message,
 				// so we discard this one without putting it on the queue
 				return;
@@ -594,7 +594,11 @@ public class ZWaveController {
 
 		// Add the message to the queue
 		this.sendQueue.add(serialMessage);
-		logger.debug("Enqueueing message. Queue length = {}", this.sendQueue.size());
+		if(logger.isTraceEnabled()) {
+			logger.debug("Enqueueing message. Queue length = {}, Queue = {}", this.sendQueue.size(), this.sendQueue);
+		} else {
+			logger.debug("Enqueueing message. Queue length = {}", this.sendQueue.size());
+		}
 	}
 
 	/**
@@ -1127,6 +1131,17 @@ public class ZWaveController {
 		return timeOutCount.get();
 	}
 
+	/**
+	 * This is required by {@link ZWaveSecurityCommandClass} for the secure pairing process.
+	 * {@link ZWaveSecurityCommandClass} can't use the event handling because the
+	 * object won't exist when this occurs, so we hold it here so {@link ZWaveSecurityCommandClass}
+	 * can access it
+	 * @return
+	 */
+	public ZWaveInclusionEvent getLastIncludeSlaveFoundEvent() {
+		return lastIncludeSlaveFoundEvent;
+	}
+
 	// Nested classes and enumerations
 
 	/**
@@ -1177,7 +1192,7 @@ public class ZWaveController {
 	 */
 	private class ZWaveSendThread extends Thread {
 
-		private final Logger logger = LoggerFactory.getLogger(ZWaveSendThread.class);
+		private Logger logger = LoggerFactory.getLogger(ZWaveSendThread.class);
 
 		private ZWaveSendThread() {
 			super("ZWaveSendThread");
@@ -1191,13 +1206,35 @@ public class ZWaveController {
 			logger.debug("Starting Z-Wave thread: Send");
 			try {
 				while (!interrupted()) {
+					// TODO: DB once code stabilizes, try removing this and see if it's really necessary
+					// If the next message in the queue is SECURITY_NONCE_REPORT, we always send it
+					// as it is time sensitive and will block other sent messages from being marked as complete
+					boolean isNextSendMessageSecurityNonceReport = sendQueue.peek() != null
+							&& sendQueue.peek().getMessagePayload().length > 4
+							&& sendQueue.peek().getMessagePayloadByte(3) == CommandClass.SECURITY.getKey()
+							&& sendQueue.peek().getMessagePayloadByte(4) == ZWaveSecurityCommandClass.SECURITY_NONCE_REPORT;
+					// TODO: DB remove this logger statement
+					if(sendQueue.peek() != null && sendQueue.peek().getMessagePayload().length > 4) {
+						logger.trace(String.format("isNextSendMessageSecurityNonceReport=%s class=0x%02X message= 0x%02X",
+								isNextSendMessageSecurityNonceReport,  sendQueue.peek().getMessagePayload()[3],
+								sendQueue.peek().getMessagePayload()[4]));
+					}
+					// Even it isNextSendMessageSecurityNonceReport is true, don't send unless we have an ack from the last message
+					if(isNextSendMessageSecurityNonceReport && lastSentMessage.isAckPending()) {
+						// Wait just a little, then retry since we should have the ack by then
+						if(!sendAllowed.tryAcquire(1, zWaveResponseTimeout / 5, TimeUnit.MILLISECONDS)) {
+							continue; // loop again to see if the ack was received
+						}
+					}
 					// To avoid sending lots of frames when we still have input frames to
 					// process, we wait here until we've processed all receive frames
-					if(!sendAllowed.tryAcquire(1, zWaveResponseTimeout, TimeUnit.MILLISECONDS)) {
+					if(!isNextSendMessageSecurityNonceReport && !sendAllowed.tryAcquire(1, zWaveResponseTimeout, TimeUnit.MILLISECONDS)) {
 						logger.warn("Receive queue TIMEOUT: {}", recvQueue.size());
 						continue;
 					}
-					sendAllowed.release();
+					if(!isNextSendMessageSecurityNonceReport) {
+						sendAllowed.release();
+					}
 
 					// Take the next message from the send queue
 					try {
@@ -1346,7 +1383,7 @@ public class ZWaveController {
 		private static final int NAK = 0x15;
 		private static final int CAN = 0x18;
 
-		private final Logger logger = LoggerFactory.getLogger(ZWaveReceiveThread.class);
+		private Logger logger = LoggerFactory.getLogger(ZWaveReceiveThread.class);
 
 		private ZWaveReceiveThread() {
 			super("ZWaveReceiveThread");
@@ -1526,8 +1563,8 @@ public class ZWaveController {
 	 */
 	private class WatchDogTimerTask extends TimerTask {
 
-		private final Logger logger = LoggerFactory.getLogger(WatchDogTimerTask.class);
-		private final String serialPortName;
+		private Logger logger = LoggerFactory.getLogger(WatchDogTimerTask.class);
+		private String serialPortName;
 
 		/**
 		 * Creates a new instance of the WatchDogTimerTask class.
@@ -1558,16 +1595,5 @@ public class ZWaveController {
 				}
 			}
 		}
-	}
-
-	/**
-	 * This is required by {@link ZWaveSecurityCommandClass} for the secure pairing process.
-	 * {@link ZWaveSecurityCommandClass} can't use the event handling because the
-	 * object won't exist when this occurs, so we hold it here so {@link ZWaveSecurityCommandClass}
-	 * can access it
-	 * @return
-	 */
-	public ZWaveInclusionEvent getLastIncludeSlaveFoundEvent() {
-		return lastIncludeSlaveFoundEvent;
 	}
 }
