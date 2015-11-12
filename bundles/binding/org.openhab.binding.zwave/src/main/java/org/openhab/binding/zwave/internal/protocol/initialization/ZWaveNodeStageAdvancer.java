@@ -36,7 +36,7 @@ import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveConfigurati
 import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveManufacturerSpecificCommandClass;
 import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveMultiInstanceCommandClass;
 import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveNoOperationCommandClass;
-import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveSecurityCommandClass;
+import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveSecurityCommandClassWithInitialization;
 import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveVersionCommandClass;
 import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveVersionCommandClass.LibraryType;
 import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveWakeUpCommandClass;
@@ -147,6 +147,11 @@ public class ZWaveNodeStageAdvancer implements ZWaveEventListener {
 
 	private Date queryStageTimeStamp;
 	private ZWaveNodeInitStage currentStage;
+
+	/**
+	 * Used only by {@link ZWaveNodeInitStage#SECURITY_REPORT}
+	 */
+	private SerialMessage securityLastSentMessage;
 
 	/**
 	 * Constructor. Creates a new instance of the ZWaveNodeStageAdvancer class.
@@ -455,10 +460,8 @@ public class ZWaveNodeStageAdvancer implements ZWaveEventListener {
 				// 		3. It will sometimes return an empty message list, but this just means it's
 				//			waiting for another response to come back
 				if(this.node.supportsCommandClass(CommandClass.SECURITY)) {
-					ZWaveSecurityCommandClass securityCommandClass = (ZWaveSecurityCommandClass) this.node.getCommandClass(CommandClass.SECURITY);
+					ZWaveSecurityCommandClassWithInitialization securityCommandClass = (ZWaveSecurityCommandClassWithInitialization) this.node.getCommandClass(CommandClass.SECURITY);
 					Collection<SerialMessage> messageList = securityCommandClass.initialize(stageAdvanced);
-					logger.debug("NODE {}: securityCommandClass.initialize returned messageList={}",
-							this.node.getNodeId(), messageList);
 					if(messageList == null) { // This means we're done, advance the stage
 						// If restored from a config file, redo from the dynamic node stage.
 						if (isRestoredFromConfigfile()) {
@@ -470,8 +473,12 @@ public class ZWaveNodeStageAdvancer implements ZWaveEventListener {
 						return; // Let ZWaveInputThread go back and wait for an incoming message
 					} else { // Add one or more messages to the queue
 						addToQueue(messageList);
-						// Reset our retry count since we have multiple message exchanges
-						retryCount = 0;
+						SerialMessage nextSecurityMessageToSend = messageList.iterator().next();
+						if(!nextSecurityMessageToSend.equals(securityLastSentMessage)) {
+							// Reset our retry count since this is a different message
+							retryCount = 0;
+							securityLastSentMessage = nextSecurityMessageToSend;
+						}
 					}
 				} else {
 					logger.info("NODE {}: does not support SECURITY_REPORT, proceeding to next stage.",

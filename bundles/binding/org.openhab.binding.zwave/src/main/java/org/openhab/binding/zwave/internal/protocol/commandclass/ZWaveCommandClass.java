@@ -9,7 +9,6 @@
 package org.openhab.binding.zwave.internal.protocol.commandclass;
 
 import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.HashMap;
@@ -28,8 +27,8 @@ import com.thoughtworks.xstream.annotations.XStreamAlias;
 import com.thoughtworks.xstream.annotations.XStreamOmitField;
 
 /**
- * Z-Wave Command Class. Z-Wave device functions are controlled 
- * by command classes. A command class can be have one or multiple 
+ * Z-Wave Command Class. Z-Wave device functions are controlled
+ * by command classes. A command class can be have one or multiple
  * commands allowing the use of a certain function of the device.
  * @author Brian Crosby
  * @since 1.3.0
@@ -45,17 +44,17 @@ public abstract class ZWaveCommandClass {
 //	private static final SCALE_SHIFT = 0x03; // unused
 	private static final int PRECISION_MASK = 0xe0;
 	private static final int PRECISION_SHIFT = 0x05;
-	
+
 	@XStreamOmitField
 	private ZWaveNode node;
 	@XStreamOmitField
 	private ZWaveController controller;
 
 	private ZWaveEndpoint endpoint;
-	
+
 	private int version = 0;
 	private int instances = 0;
-	
+
 	/**
 	 * Protected constructor. Initiates a new instance of a Command Class.
 	 * @param node the node this instance commands.
@@ -68,7 +67,7 @@ public abstract class ZWaveCommandClass {
 		this.endpoint = endpoint;
 		logger.trace("Command class {} created", getCommandClass().getLabel());
 	}
-	
+
 	/**
 	 * Returns the node this command class belongs to.
 	 * @return node
@@ -76,7 +75,7 @@ public abstract class ZWaveCommandClass {
 	protected ZWaveNode getNode() {
 		return node;
 	}
-	
+
 
 	/**
 	 * Sets the node this command class belongs to.
@@ -85,7 +84,7 @@ public abstract class ZWaveCommandClass {
 	public void setNode(ZWaveNode node) {
 		this.node = node;
 	}
-	
+
 	/**
 	 * Returns the controller to send messages to.
 	 * @return controller
@@ -133,7 +132,7 @@ public abstract class ZWaveCommandClass {
 	public void setVersion(int version) {
 		this.version = version;
 	}
-	
+
 	/**
 	 * The maximum version implemented by this command class.
 	 */
@@ -143,7 +142,7 @@ public abstract class ZWaveCommandClass {
 
 	/**
 	 * Set options for this command class.
-	 * Options are provided from the device configuration database 
+	 * Options are provided from the device configuration database
 	 * @param options class
 	 * @return true if options set ok
 	 */
@@ -154,7 +153,7 @@ public abstract class ZWaveCommandClass {
 	/**
 	 * Returns the number of instances of this command class
 	 * in case the node supports the MULTI_INSTANCE command class (Version 1).
-	 * @return the number of instances 
+	 * @return the number of instances
 	 */
 	public int getInstances() {
 		return instances;
@@ -189,7 +188,7 @@ public abstract class ZWaveCommandClass {
 	 * @param i the code to instantiate
 	 * @param node the node this instance commands.
 	 * @param controller the controller to send messages to.
-	 * @return the ZWaveCommandClass instance that was instantiated, null otherwise 
+	 * @return the ZWaveCommandClass instance that was instantiated, null otherwise
 	 */
 	public static ZWaveCommandClass getInstance(int i, ZWaveNode node, ZWaveController controller) {
 		return ZWaveCommandClass.getInstance(i, node, controller, null);
@@ -202,7 +201,7 @@ public abstract class ZWaveCommandClass {
 	 * @param node the node this instance commands.
 	 * @param controller the controller to send messages to.
 	 * @param endpoint the endpoint this Command class belongs to
-	 * @return the ZWaveCommandClass instance that was instantiated, null otherwise 
+	 * @return the ZWaveCommandClass instance that was instantiated, null otherwise
 	 */
 	public static ZWaveCommandClass getInstance(int classId, ZWaveNode node, ZWaveController controller, ZWaveEndpoint endpoint) {
 		try {
@@ -215,7 +214,7 @@ public abstract class ZWaveCommandClass {
 				return null;
 			}
 			Class<? extends ZWaveCommandClass> commandClassClass = commandClass.getCommandClassClass();
-			
+
 			if (commandClassClass == null) {
 				logger.warn("NODE {}: Unsupported command class {}", node.getNodeId(), commandClass.getLabel(), classId);
 				return null;
@@ -224,17 +223,12 @@ public abstract class ZWaveCommandClass {
 
 			Constructor<? extends ZWaveCommandClass> constructor = commandClassClass.getConstructor(ZWaveNode.class, ZWaveController.class, ZWaveEndpoint.class);
 			return constructor.newInstance(new Object[] {node, controller, endpoint});
-		} catch (InstantiationException e) {
-		} catch (IllegalAccessException e) {
-		} catch (IllegalArgumentException e) {
-		} catch (InvocationTargetException e) {
-		} catch (NoSuchMethodException e) {
-		} catch (SecurityException e) {
-		}
-		logger.error(String.format("NODE %d: Error instantiating command class 0x%02x", node.getNodeId(), classId));
+		} catch (Exception e) {
+			logger.error(String.format("NODE %d: Error instantiating command class 0x%02x", node.getNodeId(), classId), e);
+		};
 		return null;
 	}
-	
+
 	/**
 	 * Extract a decimal value from a byte array.
 	 * @param buffer the buffer to be parsed.
@@ -246,18 +240,18 @@ public abstract class ZWaveCommandClass {
 		int precision = (buffer[offset] & PRECISION_MASK) >> PRECISION_SHIFT;
 
 		if((size+offset) >= buffer.length) {
-			logger.error("Error extracting value - length={}, offset={}, size={}.", 
+			logger.error("Error extracting value - length={}, offset={}, size={}.",
 					new Object[] { buffer.length, offset, size});
 			throw new NumberFormatException();
 		}
-		
+
 		int value = 0;
 		int i;
 		for (i = 0; i < size; ++i) {
 			value <<= 8;
 			value |= buffer[offset + i + 1] & 0xFF;
 		}
-		
+
 		// Deal with sign extension. All values are signed
 		BigDecimal result;
 		if ((buffer[offset + 1] & 0x80) == 0x80) {
@@ -274,7 +268,7 @@ public abstract class ZWaveCommandClass {
 		BigDecimal divisor = BigDecimal.valueOf(Math.pow(10, precision));
 		return result.divide(divisor);
 	}
-	
+
 	/**
 	 * Extract a decimal value from a byte array.
 	 * @param buffer the buffer to be parsed.
@@ -300,7 +294,7 @@ public abstract class ZWaveCommandClass {
 
 		return value;
 	}
-	
+
 
 	/**
 	 * Encodes a decimal value as a byte array.
@@ -311,7 +305,7 @@ public abstract class ZWaveCommandClass {
 	 * @since 1.4.0
 	 */
 	protected byte[] encodeValue(BigDecimal value) throws ArithmeticException {
-		
+
 		// Remove any trailing zero's so we send the least amount of bytes possible
 		BigDecimal normalizedValue = value.stripTrailingZeros();
 
@@ -326,17 +320,17 @@ public abstract class ZWaveCommandClass {
 			throw new ArithmeticException();
 		} else if (normalizedValue.unscaledValue().compareTo(BigInteger.valueOf(Integer.MIN_VALUE)) < 0)
 			throw new ArithmeticException();
-		
+
 		// default size = 4
 		int size = 4;
-		
+
 		// it might fit in a byte or short
 		if (normalizedValue.unscaledValue().intValue() >= Byte.MIN_VALUE && normalizedValue.unscaledValue().intValue() <= Byte.MAX_VALUE) {
 			size = 1;
 		} else if (normalizedValue.unscaledValue().intValue() >= Short.MIN_VALUE && normalizedValue.unscaledValue().intValue() <= Short.MAX_VALUE) {
 			size = 2;
 		}
-		
+
 		int precision = normalizedValue.scale();
 
 		byte[] result = new byte[size + 1];
@@ -441,7 +435,7 @@ public abstract class ZWaveCommandClass {
 		AV_CONTENT_DIRECTORY_MD(0x95,"AV_CONTENT_DIRECTORY_MD",null),
 		AV_RENDERER_STATUS(0x96,"AV_RENDERER_STATUS",null),
 		AV_CONTENT_SEARCH_MD(0x97,"AV_CONTENT_SEARCH_MD",null),
-		SECURITY(0x98,"SECURITY",ZWaveSecurityCommandClass.class),
+		SECURITY(0x98,"SECURITY",ZWaveSecurityCommandClassWithInitialization.class),
 		AV_TAGGING_MD(0x99,"AV_TAGGING_MD",null),
 		IP_CONFIGURATION(0x9A,"IP_CONFIGURATION",null),
 		ASSOCIATION_COMMAND_CONFIGURATION(0x9B,"ASSOCIATION_COMMAND_CONFIGURATION",null),
@@ -513,7 +507,7 @@ public abstract class ZWaveCommandClass {
 			if (codeToCommandClassMapping == null) {
 				initMapping();
 			}
-			
+
 			CommandClass commandClass = codeToCommandClassMapping.get(i);
 			if(commandClass == null) {
 				if(logger.isDebugEnabled()) {
@@ -546,7 +540,7 @@ public abstract class ZWaveCommandClass {
 			if (labelToCommandClassMapping == null) {
 				initMapping();
 			}
-			
+
 			return labelToCommandClassMapping.get(label.toLowerCase());
 		}
 
@@ -563,7 +557,7 @@ public abstract class ZWaveCommandClass {
 		public String getLabel() {
 			return label;
 		}
-		
+
 		/**
 		 * @return the command class Class
 		 */

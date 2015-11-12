@@ -50,15 +50,6 @@ class ZWaveSecureInclusionStateTracker {
 	private SerialMessage nextRequestMessage = null;
 
 	/**
-	 * The last {@link SerialMessage} that was given to {@link ZWaveNodeStageAdvancer}
-	 * when it called {@link ZWaveSecurityCommandClass#initialize(boolean)}.   Used
-	 * in cases where we need to resend the last message
-	 */
-	private SerialMessage lastRequestMessage = null;
-
-	private long lastMessageHandedBackAt = 0;
-
-	/**
 	 * Lock object that will be used for synchronization
 	 */
 	private final Object nextMessageLock = new Object();
@@ -80,8 +71,8 @@ class ZWaveSecureInclusionStateTracker {
 	 * be sent.
 	 */
 	synchronized boolean verifyAndAdvanceState(Byte newStep) {
-		logger.debug(String.format("NODE %s: ZWaveSecurityCommandClass in verifyAndAdvanceState with newstep=0x%02X, currentstep=0x%02X",
-				node.getNodeId(), newStep, currentStep));
+		logger.debug("NODE {}: ZWaveSecurityCommandClass in verifyAndAdvanceState with newstep={}, currentstep={}",
+				node.getNodeId(), ZWaveSecurityCommandClass.commandToString(newStep), ZWaveSecurityCommandClass.commandToString(currentStep));
 		if(!INIT_COMMAND_ORDER_LIST.contains(newStep)) {
 			// Commands absent from EXPECTED_COMMAND_ORDER_LIST are always ok
 			return true;
@@ -95,11 +86,11 @@ class ZWaveSecureInclusionStateTracker {
 			if(newIndex != currentIndex && newIndex - currentIndex != 1) {
 				if(HALT_ON_IMPROPER_ORDER) {
 					logger.error("NODE {}: Commands received out of order, aborting current={}, new={}",
-							node.getNodeId(), currentIndex, newIndex);
+							node.getNodeId(), ZWaveSecurityCommandClass.commandToString(currentStep), ZWaveSecurityCommandClass.commandToString(newStep));
 					return false;
 				} else {
 					logger.warn("NODE {}: Commands received out of order (warning only) current={}, new={}",
-							node.getNodeId(), currentIndex, newIndex);
+							node.getNodeId(), ZWaveSecurityCommandClass.commandToString(currentStep), ZWaveSecurityCommandClass.commandToString(newStep));
 					// fall through below
 				}
 			}
@@ -131,9 +122,7 @@ class ZWaveSecureInclusionStateTracker {
 		synchronized(nextMessageLock) {
 			if(nextRequestMessage != null) {
 				SerialMessage message = nextRequestMessage;
-				lastRequestMessage = nextRequestMessage;
 				nextRequestMessage = null;
-				lastMessageHandedBackAt = System.currentTimeMillis();
 				return message;
 			}
 			return null;
@@ -146,13 +135,5 @@ class ZWaveSecureInclusionStateTracker {
 
 	public String getErrorState() {
 		return errorState;
-	}
-
-	protected SerialMessage getLastRequestMessage() {
-		return lastRequestMessage;
-	}
-
-	protected long getLastMessageHandedBackAt() {
-		return lastMessageHandedBackAt;
 	}
 }

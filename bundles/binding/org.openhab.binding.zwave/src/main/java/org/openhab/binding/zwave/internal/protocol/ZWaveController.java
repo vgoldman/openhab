@@ -1206,35 +1206,13 @@ public class ZWaveController {
 			logger.debug("Starting Z-Wave thread: Send");
 			try {
 				while (!interrupted()) {
-					// TODO: DB once code stabilizes, try removing this and see if it's really necessary
-					// If the next message in the queue is SECURITY_NONCE_REPORT, we always send it
-					// as it is time sensitive and will block other sent messages from being marked as complete
-					boolean isNextSendMessageSecurityNonceReport = sendQueue.peek() != null
-							&& sendQueue.peek().getMessagePayload().length > 4
-							&& sendQueue.peek().getMessagePayloadByte(3) == CommandClass.SECURITY.getKey()
-							&& sendQueue.peek().getMessagePayloadByte(4) == ZWaveSecurityCommandClass.SECURITY_NONCE_REPORT;
-					// TODO: DB remove this logger statement
-					if(sendQueue.peek() != null && sendQueue.peek().getMessagePayload().length > 4) {
-						logger.trace(String.format("isNextSendMessageSecurityNonceReport=%s class=0x%02X message= 0x%02X",
-								isNextSendMessageSecurityNonceReport,  sendQueue.peek().getMessagePayload()[3],
-								sendQueue.peek().getMessagePayload()[4]));
-					}
-					// Even it isNextSendMessageSecurityNonceReport is true, don't send unless we have an ack from the last message
-					if(isNextSendMessageSecurityNonceReport && lastSentMessage.isAckPending()) {
-						// Wait just a little, then retry since we should have the ack by then
-						if(!sendAllowed.tryAcquire(1, zWaveResponseTimeout / 5, TimeUnit.MILLISECONDS)) {
-							continue; // loop again to see if the ack was received
-						}
-					}
 					// To avoid sending lots of frames when we still have input frames to
 					// process, we wait here until we've processed all receive frames
-					if(!isNextSendMessageSecurityNonceReport && !sendAllowed.tryAcquire(1, zWaveResponseTimeout, TimeUnit.MILLISECONDS)) {
-						logger.warn("Receive queue TIMEOUT: {}", recvQueue.size());
+					if(!sendAllowed.tryAcquire(1, zWaveResponseTimeout, TimeUnit.MILLISECONDS)) {
+						logger.warn("Receive queue TIMEOUT:", recvQueue.size());
 						continue;
 					}
-					if(!isNextSendMessageSecurityNonceReport) {
-						sendAllowed.release();
-					}
+					sendAllowed.release();
 
 					// Take the next message from the send queue
 					try {
@@ -1296,7 +1274,7 @@ public class ZWaveController {
 
 					// Send the REQUEST message TO the controller
 					byte[] buffer = lastSentMessage.getMessageBuffer();
-					logger.debug("NODE {}: Sending REQUEST Message = {}", lastSentMessage.getMessageNode(), SerialMessage.bb2hex(buffer));
+					logger.debug("NODE {}: Sending REQUEST Message = {}", lastSentMessage.getMessageNode(), lastSentMessage);
 					lastMessageStartTime = System.currentTimeMillis();
 					try {
 						synchronized (serialPort.getOutputStream()) {
@@ -1308,6 +1286,18 @@ public class ZWaveController {
 					catch (IOException e) {
 						logger.error("Got I/O exception {} during sending. exiting thread.", e.getLocalizedMessage());
 						break;
+					}
+
+					if(lastSentMessage instanceof SecurityEncapsulatedSerialMessage) {
+						// now that we've sent the encapsulated version, replace lastSentMessage with the original
+						// this is required because a resend requires a new nonce to be requested and a new
+						// security encapsulated message to be built
+						((SecurityEncapsulatedSerialMessage) lastSentMessage).setTransmittedAt();
+						// Take the callbackid from the encapsulated version and copy it to the original message
+						int callbackId = lastSentMessage.getCallbackId();
+						lastSentMessage = ((SecurityEncapsulatedSerialMessage) lastSentMessage)
+								.getMessageBeingEncapsulated();
+						lastSentMessage.setCallbackId(callbackId);
 					}
 
 					// Now wait for the RESPONSE, or REQUEST message FROM the controller
@@ -1339,6 +1329,7 @@ public class ZWaveController {
 							if (--lastSentMessage.attempts >= 0) {
 								logger.error("NODE {}: Timeout while sending message. Requeueing - {} attempts left!",
 										lastSentMessage.getMessageNode(), lastSentMessage.attempts);
+
 								if (lastSentMessage.getMessageClass() == SerialMessageClass.SendData) {
 									handleFailedSendDataRequest(lastSentMessage);
 								}
@@ -1355,7 +1346,7 @@ public class ZWaveController {
 						if(responseTime > longestResponseTime) {
 							longestResponseTime = responseTime;
 						}
-						logger.debug("NODE {}: Response processed after {}ms/{}ms.", lastSentMessage.getMessageNode(), responseTime, longestResponseTime);
+						logger.debug("NODE {}: Response processed for callback id {} after {}ms/{}ms.", lastSentMessage.getMessageNode(), lastSentMessage.getCallbackId(), responseTime, longestResponseTime);
 						logger.trace("Acquired. Transaction completed permit count -> {}", transactionCompleted.availablePermits());
 					}
 					catch (InterruptedException e) {
@@ -1383,7 +1374,7 @@ public class ZWaveController {
 		private static final int NAK = 0x15;
 		private static final int CAN = 0x18;
 
-		private Logger logger = LoggerFactory.getLogger(ZWaveReceiveThread.class);
+		private final Logger logger = LoggerFactory.getLogger(ZWaveReceiveThread.class);
 
 		private ZWaveReceiveThread() {
 			super("ZWaveReceiveThread");

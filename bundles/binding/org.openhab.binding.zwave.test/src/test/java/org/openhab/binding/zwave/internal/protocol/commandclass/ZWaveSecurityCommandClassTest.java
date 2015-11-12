@@ -31,7 +31,7 @@ public class ZWaveSecurityCommandClassTest extends TestCase {
 	@Override
 	protected void setUp() throws Exception {
 		super.setUp();
-		ZWaveSecurityCommandClass.USE_SECURE_CRYPTO_PRACTICES = false;
+		ZWaveSecureNonceTracker.USE_SECURE_CRYPTO_PRACTICES = false;
 		ZWaveSecurityCommandClass.setRealNetworkKey(OZW_TEST_KEY_BYTES);
 	}
 
@@ -52,7 +52,7 @@ public class ZWaveSecurityCommandClassTest extends TestCase {
 		Mockito.when(node.getNodeInitializationStage()).thenReturn(ZWaveNodeInitStage.DONE); // Test with real key?
 		ZWaveController controller = Mockito.mock(ZWaveController.class);
 		ZWaveEndpoint endpoint = Mockito.mock(ZWaveEndpoint.class);
-		ZWaveSecurityCommandClass scc = new ZWaveSecurityCommandClass(node, controller, endpoint);
+		ZWaveSecurityCommandClass scc = new ZWaveSecurityCommandClassWithInitialization(node, controller, endpoint);
 		byte[] actualBytes = scc.generateMACComplex(data, data.length, (byte)0x01,  (byte)0x02, iv);
 //		System.out.println("expected: "+Arrays.toString(expectedBytes));
 //		System.out.println("actual:   "+Arrays.toString(actualBytes));
@@ -74,7 +74,7 @@ public class ZWaveSecurityCommandClassTest extends TestCase {
 		ZWaveController controller = Mockito.mock(ZWaveController.class);
 		Mockito.when(controller.getOwnNodeId()).thenReturn(0x01);
 		ZWaveEndpoint endpoint = Mockito.mock(ZWaveEndpoint.class);
-		ZWaveSecurityCommandClass scc = new ZWaveSecurityCommandClass(node, controller, endpoint);
+		ZWaveSecurityCommandClass scc = new ZWaveSecurityCommandClassWithInitialization(node, controller, endpoint);
 		byte[] actualBytes = scc.generateMAC(ZWaveSecurityCommandClass.SECURITY_MESSAGE_ENCAP, ciphertext, (byte)0x01,  (byte)0x02, iv);
 //		System.out.println("expected: "+Arrays.toString(expectedBytes));
 //		System.out.println("actual:   "+Arrays.toString(actualBytes));
@@ -170,7 +170,7 @@ public class ZWaveSecurityCommandClassTest extends TestCase {
 		ZWaveController controller = Mockito.mock(ZWaveController.class);
 		Mockito.when(controller.getOwnNodeId()).thenReturn(0x01);
 		ZWaveEndpoint endpoint = Mockito.mock(ZWaveEndpoint.class);
-		ZWaveSecurityCommandClass scc = new ZWaveSecurityCommandClass(node, controller, endpoint);
+		ZWaveSecurityCommandClass scc = new ZWaveSecurityCommandClassWithInitialization(node, controller, endpoint);
 
 		scc.queueMessageForEncapsulationAndTransmission(messageToEncapsulate);
 		// Trigger the encapsulation by sending  byte SECURITY_NONCE_REPORT = (byte) 0x80;
@@ -345,7 +345,7 @@ public class ZWaveSecurityCommandClassTest extends TestCase {
 		ZWaveController controller = Mockito.mock(ZWaveController.class);
 		Mockito.when(controller.getOwnNodeId()).thenReturn(0x01);
 		ZWaveEndpoint endpoint = Mockito.mock(ZWaveEndpoint.class);
-		ZWaveSecurityCommandClass scc = new ZWaveSecurityCommandClass(node, controller, endpoint);
+		ZWaveSecurityCommandClass scc = new ZWaveSecurityCommandClassWithInitialization(node, controller, endpoint);
 
 		scc.queueMessageForEncapsulationAndTransmission(messageToEncapsulate);
 		// Trigger the encapsulation by sending  byte SECURITY_NONCE_REPORT = (byte) 0x80;
@@ -387,7 +387,6 @@ public class ZWaveSecurityCommandClassTest extends TestCase {
 18:30:35.365 [ZWaveReceiveThread] [DEBUG] [eController$ZWaveReceiveThread:1473 ] - Receive queue ADD: Length=1
 	 * @throws Exception
 	 */
-	 // TODO: DB fix and reenable as some bug fixes in our code invalidated the OZW test data
 	public void offtestDecryptPayload() throws Exception {
 		// Setup
 		ZWaveSecurityCommandClass.setRealNetworkKey("0xF2, 0x21, 0x4A, 0x79, 0x93, 0xBD, 0xD7, 0xF6, 0xAA, 0xB6, 0x11, 0x2C, 0x5A, 0xAE, 0x23, 0xB3");
@@ -402,12 +401,12 @@ public class ZWaveSecurityCommandClassTest extends TestCase {
 		ZWaveController controller = Mockito.mock(ZWaveController.class);
 		Mockito.when(controller.getOwnNodeId()).thenReturn(0x01);
 		ZWaveEndpoint endpoint = Mockito.mock(ZWaveEndpoint.class);
-		ZWaveSecurityCommandClass scc = new ZWaveSecurityCommandClass(node, controller, endpoint);
+		ZWaveSecurityCommandClass scc = new ZWaveSecurityCommandClassWithInitialization(node, controller, endpoint);
 		// This will force the generation of a nonce with all 0xaa when we call scc.sendNonceReport()
-		ZWaveSecurityCommandClass.USE_SECURE_CRYPTO_PRACTICES = false;
+		ZWaveSecureNonceTracker.USE_SECURE_CRYPTO_PRACTICES = false;
 		// Test MAC verify by setting DROP_PACKETS_ON_MAC_FAILURE to true
 		ZWaveSecurityCommandClass.DROP_PACKETS_ON_MAC_FAILURE = true;
-		scc.sendNonceReport();
+//		scc.sendNonceReport();  TODO: what was this for?
 
 		// Execute
 		byte[] result = scc.decryptMessage(receivedBytes, 9);

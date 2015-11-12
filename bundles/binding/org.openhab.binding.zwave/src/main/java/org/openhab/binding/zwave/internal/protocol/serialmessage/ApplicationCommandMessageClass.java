@@ -55,25 +55,18 @@ public class ApplicationCommandMessageClass  extends ZWaveCommandProcessor {
 		}
 
 		final int commandByte = incomingMessage.getMessagePayloadByte(4);
-		// Does the message need to be decrypted?  Yes if it's Security SECURITY_MESSAGE_ENCAP or SECURITY_MESSAGE_ENCAP_NONCE_GET
 		if(zwaveCommandClass instanceof ZWaveSecurityCommandClass
 			&& (ZWaveSecurityCommandClass.bytesAreEqual(ZWaveSecurityCommandClass.SECURITY_MESSAGE_ENCAP, commandByte)
 				|| ZWaveSecurityCommandClass.bytesAreEqual(ZWaveSecurityCommandClass.SECURITY_MESSAGE_ENCAP_NONCE_GET, commandByte) )) {
+			boolean isEncapNonceGet = ZWaveSecurityCommandClass.bytesAreEqual(ZWaveSecurityCommandClass.SECURITY_MESSAGE_ENCAP_NONCE_GET, commandByte);;
 			// Intercept security encapsulated messages here and decrypt them.
 			ZWaveSecurityCommandClass zwaveSecurityCommandClass = (ZWaveSecurityCommandClass)zwaveCommandClass;
-			logger.trace("NODE {}: Preparing to decrypt security encapsulated message, messageBuffer={}", nodeId,
-					SerialMessage.bb2hex(incomingMessage.getMessageBuffer()));
 			logger.trace("NODE {}: Preparing to decrypt security encapsulated message, messagePayload={}", nodeId,
 					SerialMessage.bb2hex(incomingMessage.getMessagePayload()));
 			int toDecryptLength = incomingMessage.getMessageBuffer().length - 9;
 			byte[] toDecrypt = new byte[toDecryptLength];
 			System.arraycopy(incomingMessage.getMessageBuffer(), 8, toDecrypt, 0, toDecryptLength);
 			byte[] decryptedBytes = zwaveSecurityCommandClass.decryptMessage(toDecrypt, 0);
-			if(ZWaveSecurityCommandClass.bytesAreEqual(ZWaveSecurityCommandClass.SECURITY_MESSAGE_ENCAP_NONCE_GET, commandByte)) {
-				// the device also needs another nonce, so send it
-				// regardless of the success/failure of decryption
-				zwaveSecurityCommandClass.sendNonceReport();
-			}
 			if(decryptedBytes == null) {
 				logger.error("NODE {}: Failed to decrypt message out of {} .", nodeId, incomingMessage);
 			} else {
@@ -86,8 +79,9 @@ public class ApplicationCommandMessageClass  extends ZWaveCommandProcessor {
 				decryptedMessage.setMessagePayload(decryptedBytes);
 				// Get the new command class with the decrypted contents
 				zwaveCommandClass = resolveZWaveCommandClass(node, decryptedBytes[1], zController);
+				boolean failed = false; // Use a flag bc we need to handle isEncapNonceGet either way
 				if(zwaveCommandClass == null) {
-					return false; // Error message was logged in resolveZWaveCommandClass
+					failed = true; // Error message was logged in resolveZWaveCommandClass
 				} else {
 					// Note that we do not call node.doesMessageRequireSecurityEncapsulation since it
 					// was encapsulated.  Messages that are not required to be are allowed to be,
@@ -95,6 +89,14 @@ public class ApplicationCommandMessageClass  extends ZWaveCommandProcessor {
 					logger.debug("NODE {}: After decrypt, found Command Class {}, passing to handleApplicationCommandRequest",
 							nodeId, zwaveCommandClass.getCommandClass().getLabel());
 					zwaveCommandClass.handleApplicationCommandRequest(decryptedMessage, 2, 0);
+				}
+				if(isEncapNonceGet) {
+					// the device also needs another nonce, so send it
+					// regardless of the success/failure of decryption
+					zwaveSecurityCommandClass.sendNonceReport();
+				}
+				if(failed) {
+					return false;
 				}
 			}
 		} else { // Message does not require decryption
@@ -112,7 +114,8 @@ public class ApplicationCommandMessageClass  extends ZWaveCommandProcessor {
 		if(node.getNodeId() == lastSentMessage.getMessageNode()) {
 			checkTransactionComplete(lastSentMessage, incomingMessage);
 		} else {
-			logger.debug("Transaction not completed: node address inconsistent.");
+			logger.debug("NODE {}: Transaction not completed: node address inconsistent.  lastSent={}, incoming={}",
+					lastSentMessage.getMessageNode(), incomingMessage.getMessageNode());
 		}
 
 		return true;
