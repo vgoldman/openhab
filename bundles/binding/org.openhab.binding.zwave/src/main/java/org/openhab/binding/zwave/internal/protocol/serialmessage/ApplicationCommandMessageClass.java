@@ -115,7 +115,7 @@ public class ApplicationCommandMessageClass  extends ZWaveCommandProcessor {
 			checkTransactionComplete(lastSentMessage, incomingMessage);
 		} else {
 			logger.debug("NODE {}: Transaction not completed: node address inconsistent.  lastSent={}, incoming={}",
-					lastSentMessage.getMessageNode(), incomingMessage.getMessageNode());
+					lastSentMessage.getMessageNode(), lastSentMessage.getMessageNode(), incomingMessage.getMessageNode());
 		}
 
 		return true;
