@@ -65,13 +65,13 @@ public abstract class ZWaveCommandProcessor {
 		// This is used for multi-stage transactions to ensure we get all parts of the
 		// transaction before completing.
 		if(lastSentMessage.isAckPending()) {
-			logger.trace("Message has Ack Pending: {}", lastSentMessage);
+			logger.trace("Checking transaction complete: Message has Ack Pending: {}", lastSentMessage);
 			// Return until we get the ack, then come back and compare.   This is necessary since, per ZWaveSendThread, we sometimes
 			// get the response before the ack.  See ZWaveSendThreadcomment starting with "A transaction consists of (up to) 4 parts"
 			return;
 		}
 
-		logger.debug("Sent message {}", lastSentMessage.toString());
+		logger.debug("Checking transaction complete: Sent message {}", lastSentMessage.toString());
 		final Iterator<Map.Entry<Long, SerialMessage>> iter = incomingMessageTable.entrySet().iterator();
 		final long expired = System.currentTimeMillis() - 10000; // Discard responses from 10 seconds ago or longer
 		while(iter.hasNext()) {
@@ -82,7 +82,7 @@ public abstract class ZWaveCommandProcessor {
 	      		continue;
 	      	}
 	      	final SerialMessage incomingMessage = entry.getValue();
-	      	logger.debug("Recv message {}", incomingMessage.toString());
+	      	logger.debug("Checking transaction complete: Recv message {}", incomingMessage.toString());
 	      	final boolean ignoreTransmissionCompleteMismatch = false; // TODO: chagne
 	      	if (incomingMessage.getMessageClass() == lastSentMessage.getExpectedReply() && !incomingMessage.isTransactionCanceled()) {
 	      		logger.debug("Checking transaction complete: class={}, callback id={}, expected={}, cancelled={}        transaction complete!",
