@@ -142,7 +142,7 @@ public class ZWaveDoorLockCommandClass extends ZWaveCommandClass
 	public SerialMessage setValueMessage(int value) {
 		logger.debug("NODE {}: Creating new message for application command DOORLOCK_SET", this.getNode().getNodeId());
 		SerialMessage result = new SerialMessage(this.getNode().getNodeId(), SerialMessageClass.SendData,
-				SerialMessageType.Request, SerialMessageClass.ApplicationCommandHandler, SerialMessagePriority.Set);
+				SerialMessageType.Request, SerialMessageClass.SendData, SerialMessagePriority.Set);
 		byte[] newPayload = {
 				(byte) this.getNode().getNodeId(),
 				3,

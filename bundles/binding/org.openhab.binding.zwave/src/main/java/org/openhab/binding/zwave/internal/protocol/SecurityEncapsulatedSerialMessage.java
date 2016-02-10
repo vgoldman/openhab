@@ -4,6 +4,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveCommandClass.CommandClass;
 import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveSecurityCommandClass;
+import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveSecurityPayloadFrame;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,6 +41,13 @@ public class SecurityEncapsulatedSerialMessage extends SerialMessage {
 
 	private long transmittedAt = UNSET;
 
+	private byte deviceNonceId;
+
+	/**
+	 * The original {@link ZWaveSecurityPayloadFrame} from which this message was formed
+	 */
+	private ZWaveSecurityPayloadFrame securityPayload;
+
 	// TODO: DB inherit messageClass and messageType too?
 	public SecurityEncapsulatedSerialMessage(SerialMessageClass messageClass, SerialMessageType messageType,
 			SerialMessage messageBeingEncapsulated) {
@@ -56,7 +64,7 @@ public class SecurityEncapsulatedSerialMessage extends SerialMessage {
 		boolean result = hasBeenTransmitted();
 		if(result) {
 			result = securityTransactionComplete.get();
-			// TODO: set isCOmpleted to true on door lock set
+			// TODO: DB set isCOmpleted to true on door lock set
 			//			boolean isDoorLockSetMessage = bytesAreEqual(securityPayload.getMessageBytes()[0], ZWaveCommandClass.CommandClass.DOOR_LOCK.getKey())
 //			&& bytesAreEqual(securityPayload.getMessageBytes()[1], ZWaveDoorLockCommandClass.DOORLOCK_SET);
 		}
@@ -75,7 +83,7 @@ public class SecurityEncapsulatedSerialMessage extends SerialMessage {
 			logger.trace("NODE {}: securityReponseReceived is already true, nothing to check", getMessageNode());
 			return;
 		}
-		// TODO: boolean appCommandHandler = ZWaveSecurityCommandClass.bytesAreEqual(payloadBytes[1], SerialMessageClass.ApplicationCommandHandler.getKey());
+		// TODO: DB boolean appCommandHandler = ZWaveSecurityCommandClass.bytesAreEqual(payloadBytes[1], SerialMessageClass.ApplicationCommandHandler.getKey());
 		boolean result =  payloadBytes[1] == transactionCompleteCommandClass;
 		if(result && transactionCompleteCommand != UNSET) {
 			result = ZWaveSecurityCommandClass.bytesAreEqual(transactionCompleteCommand, payloadBytes[3]);
@@ -101,7 +109,6 @@ public class SecurityEncapsulatedSerialMessage extends SerialMessage {
 		return transmittedAt;
 	}
 
-
 	protected void setTransmittedAt() {
 		this.transmittedAt = System.currentTimeMillis();
 	}
@@ -109,6 +116,22 @@ public class SecurityEncapsulatedSerialMessage extends SerialMessage {
 	public boolean hasBeenTransmitted() {
 		return this.transmittedAt != UNSET;
 	};
+
+	public void setDeviceNonceId(byte nonceId) {
+		this.deviceNonceId = nonceId;
+	}
+
+	public byte getDeviceNonceId() {
+		return deviceNonceId;
+	}
+
+	public void setSecurityPayload(ZWaveSecurityPayloadFrame securityPayload) {
+		this.securityPayload = securityPayload;
+	}
+
+	public ZWaveSecurityPayloadFrame getSecurityPayload() {
+		return securityPayload;
+	}
 
 	/**
 	 * {@inheritDoc}

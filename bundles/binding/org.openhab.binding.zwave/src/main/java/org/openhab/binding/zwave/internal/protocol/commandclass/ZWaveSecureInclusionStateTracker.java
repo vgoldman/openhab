@@ -105,7 +105,10 @@ class ZWaveSecureInclusionStateTracker {
 	}
 
 	void setNextRequest(SerialMessage message) {
-		logger.debug("NODE {}: in InclusionStateTracker.setNextRequest() with {}", node.getNodeId(), message);
+		logger.debug("NODE {}: in InclusionStateTracker.setNextRequest() (current={}) with {}", node.getNodeId(), (nextRequestMessage != null), message);
+		if(nextRequestMessage != null) {
+			logger.warn("NODE {}: in InclusionStateTracker.setNextRequest() overriding old message which was never sent of {}", node.getNodeId(), message);
+		}
 		verifyAndAdvanceState((byte) (message.getMessagePayloadByte(3) & 0xff));
 		synchronized(nextMessageLock) {
 			nextRequestMessage = message;
@@ -120,6 +123,7 @@ class ZWaveSecureInclusionStateTracker {
 	 */
 	SerialMessage getNextRequest() {
 		synchronized(nextMessageLock) {
+			logger.debug("NODE {}: in InclusionStateTracker.getNextRequest() returning {}", node.getNodeId(), nextRequestMessage);
 			if(nextRequestMessage != null) {
 				SerialMessage message = nextRequestMessage;
 				nextRequestMessage = null;
