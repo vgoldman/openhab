@@ -27,7 +27,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.thoughtworks.xstream.annotations.XStreamAlias;
-import com.thoughtworks.xstream.annotations.XStreamOmitField;
 
 /**
  * Handles the UserCode command class.
@@ -59,12 +58,6 @@ public class ZWaveUserCodeCommandClass extends ZWaveCommandClass implements ZWav
 	private int numberOfUsersSupported = UNKNOWN;
 
 	private List<UserCode> userCodeList = new ArrayList<UserCode>();
-
-	/**
-	 * The index of the user we are syncing with
-	 */
-	@XStreamOmitField
-	private int userSyncCounter = 0;
 
 	/**
 	 * Creates a new instance of the ZWaveDoorLockCommandClass class.
@@ -164,40 +157,40 @@ public class ZWaveUserCodeCommandClass extends ZWaveCommandClass implements ZWav
 			logger.error("NODE {}: too many user codes given, device only supports {}; no codes set", getNode().getNodeId(), numberOfUsersSupported);
 			return;
 		}
-
-		// Take all codes from the serialize xml and send them to the lock
-		UserCode userCode = userCodeList.get(userSyncCounter);
-		String code = userCode.code;
-		// zeros means delete the code
-		boolean codeIsZeros = Integer.parseInt(code) == 0; // no NumberFormatException since we called userCodeIsValid
-		if(codeIsZeros) {
-			code = ""; // send no code since we will set UserIdStatusType.AVAILBLE
-		}
-		if(codeIsZeros || userCodeIsValid(userCode, getNode().getNodeId())) {
-			logger.debug("NODE {}: {} user code for {}", this.getNode().getNodeId(), codeIsZeros ? "Removing" : "Sending", userCode.friendlyName);
-			SerialMessage message = new SerialMessage(this.getNode().getNodeId(), SerialMessageClass.SendData,
-					SerialMessageType.Request, SerialMessageClass.SendData, SerialMessagePriority.Get);
-			ByteArrayOutputStream baos = new ByteArrayOutputStream();
-			baos.write((byte) this.getNode().getNodeId());
-			baos.write(4 + code.length());
-			baos.write((byte) getCommandClass().getKey());
-			baos.write(USER_CODE_SET);
-			baos.write(userSyncCounter + 1); // identifier, must be 1 or higher
+		for (int i = 0; i < userCodeList.size(); i++) {
+			UserCode userCode = userCodeList.get(i);
+			// Take all codes from the serialize xml and send them to the lock
+			String code = userCode.code;
+			// zeros means delete the code
+			boolean codeIsZeros = Integer.parseInt(code) == 0; // no NumberFormatException since we called userCodeIsValid
 			if(codeIsZeros) {
-				baos.write(UserIdStatusType.AVAILBLE.key); // status
-			} else {
-				baos.write(UserIdStatusType.OCCUPIED.key); // status
-				try {
-					for(Byte aCodeDigit : code.getBytes("UTF-8")) {
-						baos.write(aCodeDigit);
-					}
-				} catch (UnsupportedEncodingException e) {
-					logger.error("Got UnsupportedEncodingException", e);
-				}
+				code = ""; // send no code since we will set UserIdStatusType.AVAILBLE
 			}
-			message.setMessagePayload(baos.toByteArray());
-			getNode().getController().enqueue(message);
-			// Once we get the report, we will fire off the next one
+			if(codeIsZeros || userCodeIsValid(userCode, getNode().getNodeId())) {
+				logger.debug("NODE {}: {} user code for {}", this.getNode().getNodeId(), codeIsZeros ? "Removing" : "Sending", userCode.friendlyName);
+				SerialMessage message = new SerialMessage(this.getNode().getNodeId(), SerialMessageClass.SendData,
+						SerialMessageType.Request, SerialMessageClass.SendData, SerialMessagePriority.Get);
+				ByteArrayOutputStream baos = new ByteArrayOutputStream();
+				baos.write((byte) this.getNode().getNodeId());
+				baos.write(4 + code.length());
+				baos.write((byte) getCommandClass().getKey());
+				baos.write(USER_CODE_SET);
+				baos.write(i + 1); // identifier, must be 1 or higher
+				if(codeIsZeros) {
+					baos.write(UserIdStatusType.AVAILBLE.key); // status
+				} else {
+					baos.write(UserIdStatusType.OCCUPIED.key); // status
+					try {
+						for(Byte aCodeDigit : code.getBytes("UTF-8")) {
+							baos.write(aCodeDigit);
+						}
+					} catch (UnsupportedEncodingException e) {
+						logger.error("Got UnsupportedEncodingException", e);
+					}
+				}
+				message.setMessagePayload(baos.toByteArray());
+				getNode().getController().enqueue(message);
+			}
 		}
 	}
 
