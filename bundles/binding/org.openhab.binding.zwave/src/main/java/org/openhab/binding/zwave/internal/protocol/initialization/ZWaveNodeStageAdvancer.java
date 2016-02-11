@@ -449,6 +449,64 @@ public class ZWaveNodeStageAdvancer implements ZWaveEventListener {
 				addToQueue(new RequestNodeInfoMessageClass().doRequest(node.getNodeId()));
 				break;
 
+			case SECURITY_REPORT:
+				// For devices that use security.  When invoked during secure inclusion, this
+				// method will go through all steps to give the device our zwave:networkKey from
+				// the config.  This requires multiple steps as defined in ZWaveSecurityCommandClassWithInitialization
+				// SECURITY_REPORT has different semantics than the other stages such that:
+				// 		1. It cannot generate all of the request messages during the first pass
+				//		2. It handles stage advancement manually, as this code path is most typically called
+				// 			by the ZWaveInputThread which needs to return from this call to receive more messages
+				// 		3. It will sometimes return an empty message list, but this just means it's
+				//			waiting for another response to come back
+				if(this.node.supportsCommandClass(CommandClass.SECURITY)) {
+					ZWaveSecurityCommandClassWithInitialization securityCommandClass = (ZWaveSecurityCommandClassWithInitialization) this.node.getCommandClass(CommandClass.SECURITY);
+					// For a node restored from a config file, this may or may not return a message
+					Collection<SerialMessage> messageList = securityCommandClass.initialize(stageAdvanced);
+					if(messageList == null) { // This means we're done, advance the stage
+						if (isRestoredFromConfigfile()) {
+							// Since we were restored from a config file, redo from the dynamic node stage.
+							logger.debug("NODE {}: Node advancer: Restored from file - skipping static initialisation", node.getNodeId());
+							currentStage = ZWaveNodeInitStage.SESSION_START;
+							break;
+						} else {
+							// This node was just included, check for success or failure
+							if(securityCommandClass.wasSecureInclusionSuccessful()) {
+								logger.debug("NODE {}: Secure inclusion complete, serializing node", node.getNodeId());
+								nodeSerializer.SerializeNode(node);
+								break;
+							} else {
+								// securityCommandClass output a message about the failure
+								logger.debug("NODE {}: Since secure inclusion failed, the node must be manually excluded via habmin", node.getNodeId());
+								// Stop the retry timer
+								resetIdleTimer();
+								// We remove the event listener to reduce loading now that we're done
+								controller.removeEventListener(this);
+								return;
+							}
+						}
+					} else if(messageList.isEmpty()) {
+						return; // Let ZWaveInputThread go back and wait for an incoming message
+					} else { // Add one or more messages to the queue
+						addToQueue(messageList);
+						SerialMessage nextSecurityMessageToSend = messageList.iterator().next();
+						if(!nextSecurityMessageToSend.equals(securityLastSentMessage)) {
+							// Reset our retry count since this is a different message
+							retryCount = 0;
+							securityLastSentMessage = nextSecurityMessageToSend;
+						}
+					}
+				} else { // !node.supportsCommandClass(CommandClass.SECURITY)
+					if (isRestoredFromConfigfile()) {
+						// Since we were restored from a config file, redo from the dynamic node stage.
+						logger.debug("NODE {}: Node advancer: Restored from file - skipping static initialisation", node.getNodeId());
+						currentStage = ZWaveNodeInitStage.SESSION_START;
+					}
+					logger.info("NODE {}: does not support SECURITY_REPORT, proceeding to next stage.",
+							this.node.getNodeId());
+				}
+				break;
+
 			case MANUFACTURER:
 				// If we already know the device information, then continue
 				if (node.getManufacturer() != Integer.MAX_VALUE && node.getDeviceType() != Integer.MAX_VALUE
@@ -465,48 +523,6 @@ public class ZWaveNodeStageAdvancer implements ZWaveEventListener {
 					// class, we use it to get manufacturer info.
 					logger.debug("NODE {}: Node advancer: MANUFACTURER - send ManufacturerSpecific", node.getNodeId());
 					addToQueue(manufacturerSpecific.getManufacturerSpecificMessage());
-				}
-				break;
-
-			case SECURITY_REPORT:
-				// For devices that use security.  When invoked during secure inclusion, this
-				// method will go through all steps to give the device our zwave:networkKey from
-				// the config.  This requires multiple steps as defined in ZWaveSecurityCommandClassWithInitialization
-				// SECURITY_REPORT has different semantics than the other stages such that:
-				// 		1. It cannot generate all of the request messages during the first pass
-				//		2. It handles stage advancement manually, as this code path is most typically called
-				// 			by the ZWaveInputThread which needs to return from this call to receive more messages
-				// 		3. It will sometimes return an empty message list, but this just means it's
-				//			waiting for another response to come back
-				if(this.node.supportsCommandClass(CommandClass.SECURITY)) {
-					ZWaveSecurityCommandClassWithInitialization securityCommandClass = (ZWaveSecurityCommandClassWithInitialization) this.node.getCommandClass(CommandClass.SECURITY);
-					Collection<SerialMessage> messageList = securityCommandClass.initialize(stageAdvanced);
-					if(messageList == null) { // This means we're done, advance the stage
-						if (isRestoredFromConfigfile()) {
-							// If restored from a config file, redo from the dynamic node stage.
-							logger.debug("NODE {}: Node advancer: Restored from file - skipping static initialisation", node.getNodeId());
-							currentStage = ZWaveNodeInitStage.SESSION_START;
-							break;
-						} else {
-							// This node was just included, save the node information to file
-							logger.debug("NODE {}: Secure inclusion complete, serializing node", node.getNodeId());
-							nodeSerializer.SerializeNode(node);
-							break;
-						}
-					} else if(messageList.isEmpty()) {
-						return; // Let ZWaveInputThread go back and wait for an incoming message
-					} else { // Add one or more messages to the queue
-						addToQueue(messageList);
-						SerialMessage nextSecurityMessageToSend = messageList.iterator().next();
-						if(!nextSecurityMessageToSend.equals(securityLastSentMessage)) {
-							// Reset our retry count since this is a different message
-							retryCount = 0;
-							securityLastSentMessage = nextSecurityMessageToSend;
-						}
-					}
-				} else {
-					logger.info("NODE {}: does not support SECURITY_REPORT, proceeding to next stage.",
-							this.node.getNodeId());
 				}
 				break;
 
