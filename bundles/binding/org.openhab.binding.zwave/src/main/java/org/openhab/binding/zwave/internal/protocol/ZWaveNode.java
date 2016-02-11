@@ -882,7 +882,7 @@ public class ZWaveNode {
 			} else {
 				result = securedCommandClasses.contains(commandClassOfMessage);
 				if(!result) {
-					// Certain messages must always be sent securely
+					// Certain messages must always be sent securely per the zwave spec
 					if(commandClassOfMessage == CommandClass.DOOR_LOCK ||
 							commandClassOfMessage == CommandClass.USER_CODE) { // TODO: DB what else?
 						logger.warn("NODE {}: CommandClass {} is not marked as secure but should be, forcing secure",
@@ -897,5 +897,4 @@ public class ZWaveNode {
 		}
 		return result;
 	}
-
 }
