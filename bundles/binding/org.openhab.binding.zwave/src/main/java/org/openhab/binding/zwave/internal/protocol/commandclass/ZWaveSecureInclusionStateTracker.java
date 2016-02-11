@@ -10,7 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Used only by {@link ZWaveSecurityCommandClass} during device inclusion.
+ * Used only by {@link ZWaveSecurityCommandClassWithInitialization} during device inclusion.
  *
  * During device inclusion, the security registration process between us and the node
  * has multiple stages in order to share our network key with the device.  This class

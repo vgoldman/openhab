@@ -66,7 +66,6 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 	private static final int WAIT_TIME_MILLIS = 20000;
 
 	private static final String SECURE_INCLUSION_FAILED_MESSAGE = "Secure Inclusion FAILED.";
-	private static final String SECURE_INCLUSION_COMPLETE_MESSAGE = "Secure Inclusion complete";
 
 	/**
 	 * Timer that tracks how long we should wait for a response.   {@link ZWaveNodeStageAdvancer}
@@ -166,10 +165,10 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 					}
 					SerialMessage message = nonceGeneration.buildNonceGetIfNeeded();
 					// Since we are in init mode, message should always != null
-					if(message == null) {
-						logger.error("NODE {}: "+SECURE_INCLUSION_FAILED_MESSAGE+"  In inclusion mode but buildNonceGetIfNeeded returned null, this may result in a deadlock");
+					if(message != null) {
+						// TODO: DB is this true?: logger.error("NODE {}: "+SECURE_INCLUSION_FAILED_MESSAGE+"  In inclusion mode but buildNonceGetIfNeeded returned null, this may result in a deadlock");
+						inclusionStateTracker.setNextRequest(message); // Let ZWaveNodeStageAdvancer come get the NONCE_GET
 					}
-					inclusionStateTracker.setNextRequest(message); // Let ZWaveNodeStageAdvancer come get the NONCE_GET
 				} catch (IOException e) {
 					logger.error("NODE {}: IOException trying to write SECURITY_NETWORK_KEY_SET, aborted", e);
 				}
@@ -190,9 +189,8 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 			// Since we got here, it means we decrypted a packet using the key we sent in
 			// the SECURITY_NETWORK_KEY_SET message and the new key is in use by both sides.
 			// Next step is to send SECURITY_COMMANDS_SUPPORTED_GET
-			securePairingComplete = true;
 			if(SEND_SECURITY_COMMANDS_SUPPORTED_GET_ON_STARTUP) {
-				logger.info("NODE {}: "+SECURE_INCLUSION_COMPLETE_MESSAGE, this.getNode().getNodeId());
+				securePairingComplete = true;
 			}
 			SerialMessage supportedGetMessage = new SerialMessage(this.getNode().getNodeId(), SerialMessageClass.SendData,
 					SerialMessageType.Request, SerialMessageClass.ApplicationCommandHandler, SECURITY_MESSAGE_PRIORITY);
@@ -313,10 +311,7 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 				message.setMessagePayload(payload);
 				inclusionMessageReturnList = Collections.singletonList(message);
 			} else if(receivedSecurityCommandsSupportedReport) {
-				// SECURITY_COMMANDS_SUPPORTED_REPORT is received and that is our step in the secure inclusion process
-				if(!SEND_SECURITY_COMMANDS_SUPPORTED_GET_ON_STARTUP) {
-					logger.error("NODE {}: "+SECURE_INCLUSION_COMPLETE_MESSAGE, getNode().getNodeId());
-				}
+				securePairingComplete = true;
 				inclusionMessageReturnList = null; // Tell ZWaveNodeStageAdvancer to advance to the next stage
 			} else { // Normal inclusion flow, get the next message or wait for a response to the current one
 				SerialMessage nextMessage = inclusionStateTracker.getNextRequest();
@@ -382,8 +377,7 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 			} else if(receivedSecurityCommandsSupportedReport) {
 				returnMessageList = null; // Normal flow, nothing else to do, tell ZWaveNodeStageAdvancer to advance to the next stage
 			} else if(System.currentTimeMillis() > waitForReplyTimeout) {
-				logger.error("NODE {}: Got no response to InitialSupportedGet, aborting", this.getNode().getNodeId());
-				// TODO: DB hold on to the last message and resend if the timer expires
+				logger.error("NODE {}: Got no response to SECURITY_COMMANDS_SUPPORTED on init, using old", this.getNode().getNodeId());
 				returnMessageList = null; // Tell ZWaveNodeStageAdvancer to advance to the next stage
 			} else {
 				// the request was already sent, wait for the nonce exchange and the reply to come
@@ -460,6 +454,10 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 			return false;
 		}
 		return true;
+	}
+
+	public boolean wasSecureInclusionSuccessful() {
+		 return securePairingComplete;
 	}
 
 }

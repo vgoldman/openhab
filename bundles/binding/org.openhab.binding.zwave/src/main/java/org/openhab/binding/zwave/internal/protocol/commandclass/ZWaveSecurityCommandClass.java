@@ -37,6 +37,7 @@ import org.openhab.binding.zwave.internal.protocol.ZWaveNode;
 import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveSecureNonceTracker.Nonce;
 import org.openhab.binding.zwave.internal.protocol.event.ZWaveInclusionEvent;
 import org.openhab.binding.zwave.internal.protocol.event.ZWaveInclusionEvent.Type;
+import org.openhab.binding.zwave.internal.protocol.initialization.ZWaveNodeSerializer;
 import org.openhab.binding.zwave.internal.protocol.serialmessage.ApplicationCommandMessageClass;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -297,7 +298,6 @@ public abstract class ZWaveSecurityCommandClass extends ZWaveCommandClass  {
 	 * Flag to disable the use of {@link #SECURITY_MESSAGE_ENCAP_NONCE_GET}
 	 * on a per device basis if it's not working
 	 */
-	@XStreamOmitField
 	private boolean disableEncapNonceGet = false;
 
 	static {
@@ -569,7 +569,6 @@ public abstract class ZWaveSecurityCommandClass extends ZWaveCommandClass  {
 			Iterator<ZWaveSecurityPayloadFrame> iter = payloadEncapsulationQueue.iterator();
 			while(iter.hasNext()) {
 				ZWaveSecurityPayloadFrame aFrameFromQueue = iter.next();
-				boolean hasMultipleParts = aFrameFromQueue.getTotalParts() > 1;
 				boolean shouldRemove = false;
 				byte[] newMessageTwoBytes = new byte[2];
 				System.arraycopy(securityPayloadFrameList.get(0).getMessageBytes(), 0, newMessageTwoBytes, 0, 2);
@@ -1176,6 +1175,8 @@ public abstract class ZWaveSecurityCommandClass extends ZWaveCommandClass  {
     	    						// so SECURITY_MESSAGE_ENCAP_NONCE_GET isn't working, disable it
     	    						disableEncapNonceGet = true;
     	    						logger.error("NODE {}: SECURITY_MESSAGE_ENCAP_NONCE_GET disabled", getNode().getNodeId());
+    	    						// Save the setting so we remember
+    	    						new ZWaveNodeSerializer().SerializeNode(getNode());
     	    					}
     	    				}
     						lastEncapsulatedRequstMessage = null;

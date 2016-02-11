@@ -54,9 +54,6 @@ public class ZWaveDoorLockCommandClass extends ZWaveCommandClass
 	 */
 	private static final int DOORLOCK_CONFIG_REPORT = 0x06;
 
-	private static final int DOORLOCK_CONFIG_NO_TIMEOUT = 0x01;
-	private static final int DOORLOCK_CONFIG_TIMEOUT = 0x02;
-
 	/**
 	 * Creates a new instance of the ZWaveDoorLockCommandClass class.
 	 * @param node the node this command class belongs to
@@ -101,12 +98,12 @@ public class ZWaveDoorLockCommandClass extends ZWaveCommandClass
 				int lockTimeoutMinutes = serialMessage.getMessagePayloadByte(offset + 4);
 				int lockTimeoutSeconds = serialMessage.getMessagePayloadByte(offset + 5);
 
-				logger.info(String.format("NODE %d: Door Lock report - lockState = 0x%02x," +
+				DoorLockStateType doorLockState = DoorLockStateType.getDoorLockStateType(lockState);
+				logger.info(String.format("NODE %d: Door Lock report - lockState = %s," +
 						"handlesMode = 0x%02x, doorCondition = 0x%02x, lockTimeoutMinutes = 0x%02x," +
-						"lockTimeoutSeconds = 0x%02x", this.getNode().getNodeId(), lockState, handlesMode,
+						"lockTimeoutSeconds = 0x%02x", this.getNode().getNodeId(), doorLockState.label, handlesMode,
 						doorCondition, lockTimeoutMinutes, lockTimeoutSeconds));
 
-				// TODO: DB handle other events too?
 				ZWaveDoorLockValueEvent zEvent = new ZWaveDoorLockValueEvent(this.getNode().getNodeId(),
 						endpoint, lockState);
 				this.getController().notifyEventListeners(zEvent);
