@@ -20,7 +20,7 @@ import com.thoughtworks.xstream.annotations.XStreamAlias;
 /**
  * Z-Wave device class. A Z-Wave device class groups devices with the same
  * functionality together in a class.
- * TODO: Complete all device classes. 
+ * TODO: Complete all device classes.
  * @author Jan-Willem Spuij
  * @author Chris Jackson
  * @since 1.3.0
@@ -33,7 +33,7 @@ public class ZWaveDeviceClass {
 	private Basic basicDeviceClass;
 	private Generic genericDeviceClass;
 	private Specific specificDeviceClass;
-	
+
 	/**
 	 * Constructor. Creates a new instance of the Z-Wave device class.
 	 * @param basicDeviceClass the basic device class of this node.
@@ -42,7 +42,7 @@ public class ZWaveDeviceClass {
 	 */
 	public ZWaveDeviceClass(Basic basicDeviceClass, Generic genericDeviceClass, Specific specificDeviceClass){
 		logger.trace("Constructing Zwave Device Class");
-		
+
 		this.basicDeviceClass = basicDeviceClass;
 		this.genericDeviceClass = genericDeviceClass;
 		this.specificDeviceClass = specificDeviceClass;
@@ -79,14 +79,14 @@ public class ZWaveDeviceClass {
 	public void setGenericDeviceClass(Generic genericDeviceClass) {
 		this.genericDeviceClass = genericDeviceClass;
 	}
-	
+
 	/**
 	 * Get the specific device class of the node.
 	 * @return the specificDeviceClass
 	 */
 	public Specific getSpecificDeviceClass() {
 		return specificDeviceClass;
-	}	
+	}
 	/**
 	 * Set the specific device class of the node.
 	 * @param specificDeviceClass the specificDeviceClass to set
@@ -94,12 +94,12 @@ public class ZWaveDeviceClass {
 	 * the generic device class.
 	 */
 	public void setSpecificDeviceClass(Specific specificDeviceClass) throws IllegalArgumentException {
-		
+
 		// The specific Device class does not match the generic device class.
-		if (specificDeviceClass.genericDeviceClass != Generic.NOT_KNOWN && 
+		if (specificDeviceClass.genericDeviceClass != Generic.NOT_KNOWN &&
 				specificDeviceClass.genericDeviceClass != this.genericDeviceClass)
 			throw new IllegalArgumentException("specificDeviceClass");
-		
+
 		this.specificDeviceClass = specificDeviceClass;
 	}
 
@@ -147,16 +147,16 @@ public class ZWaveDeviceClass {
 
 	/**
 	 * Z-Wave basic Device Class enumeration. The Basic Device Class provides
-	 * the device with a role in the Z-Wave network. 
+	 * the device with a role in the Z-Wave network.
 	 * @author Brian Crosby
 	 * @author Jan-Willem Spuij
 	 * @since 1.3.0
 	 */
 	public enum Basic {
-		NOT_KNOWN(0, "Not Known"), 
-		CONTROLLER(1, "Controller"), 
-		STATIC_CONTROLLER(2, "Static Controller"), 
-		SLAVE(3, "Slave"), 
+		NOT_KNOWN(0, "Not Known"),
+		CONTROLLER(1, "Controller"),
+		STATIC_CONTROLLER(2, "Static Controller"),
+		SLAVE(3, "Slave"),
 		ROUTING_SLAVE(4, "Routing Slave");
 
 		/**
@@ -190,7 +190,7 @@ public class ZWaveDeviceClass {
 			if (codeToBasicMapping == null) {
 				initMapping();
 			}
-			
+
 			return codeToBasicMapping.get(i);
 		}
 
@@ -221,29 +221,29 @@ public class ZWaveDeviceClass {
 	 * @since 1.3.0
 	 */
 	public enum Generic {
-		NOT_KNOWN(0, "Not Known"), 
-		REMOTE_CONTROLLER(0x01, "Remote Controller"), 
-		STATIC_CONTOLLER(0x02, "Static Controller"), 
-		AV_CONTROL_POINT(0x03, "A/V Control Point"), 
+		NOT_KNOWN(0, "Not Known"),
+		REMOTE_CONTROLLER(0x01, "Remote Controller"),
+		STATIC_CONTOLLER(0x02, "Static Controller"),
+		AV_CONTROL_POINT(0x03, "A/V Control Point"),
 		DISPLAY(0x06, "Display"),
 		GARAGE_DOOR(0x07, "Garage Door"),
-		THERMOSTAT(0x08, "Thermostat"), 
-		WINDOW_COVERING(0x09, "Window Covering"), 
-		REPEATER_SLAVE(0x0f, "Repeater Slave"), 
-		BINARY_SWITCH(0x10, "Binary Switch"), 
-		MULTILEVEL_SWITCH(0x11, "Multi-Level Switch"), 
-		REMOTE_SWITCH(0x12, "Remote Switch"), 
-		TOGGLE_SWITCH(0x13, "Toggle Switch"), 
-		Z_IP_GATEWAY(0x14, "Z/IP Gateway"), 
+		THERMOSTAT(0x08, "Thermostat"),
+		WINDOW_COVERING(0x09, "Window Covering"),
+		REPEATER_SLAVE(0x0f, "Repeater Slave"),
+		BINARY_SWITCH(0x10, "Binary Switch"),
+		MULTILEVEL_SWITCH(0x11, "Multi-Level Switch"),
+		REMOTE_SWITCH(0x12, "Remote Switch"),
+		TOGGLE_SWITCH(0x13, "Toggle Switch"),
+		Z_IP_GATEWAY(0x14, "Z/IP Gateway"),
 		Z_IP_NODE(0x15, "Z/IP Node"),
 		VENTILATION(0x16, "Ventilation"),
 		REMOTE_SWITCH_2(0x18, "Remote Switch 2"),
-		BINARY_SENSOR(0x20, "Binary Sensor"), 
+		BINARY_SENSOR(0x20, "Binary Sensor"),
 		MULTILEVEL_SENSOR(0x21, "Multi-Level Sensor"),
 		WATER_CONTROL(0x22, "Water Control"),
-		PULSE_METER(0x30, "Pulse Meter"), 
-		METER(0x31, "Meter"), 
-		ENTRY_CONTROL(0x40, "Entry Control"), 
+		PULSE_METER(0x30, "Pulse Meter"),
+		METER(0x31, "Meter"),
+		ENTRY_CONTROL(0x40, "Entry Control"),
 		SEMI_INTEROPERABLE(0x50, "Semi-Interoperable"),
 		ALARM_SENSOR(0xa1, "Alarm Sensor"),
 		NON_INTEROPERABLE(0xff, "Non-Interoperable");
@@ -279,7 +279,7 @@ public class ZWaveDeviceClass {
 			if (codeToGenericMapping == null) {
 				initMapping();
 			}
-			
+
 			return codeToGenericMapping.get(i);
 		}
 
@@ -296,7 +296,7 @@ public class ZWaveDeviceClass {
 		public String getLabel() {
 			return label;
 		}
-		
+
 		/**
 		 * Get the mandatory command classes for this device class.
 		 * @return the mandatory command classes.
@@ -339,14 +339,14 @@ public class ZWaveDeviceClass {
 			}
 		}
 	}
-	
+
 	/**
-	 * Z-Wave Specific Device Class enumeration. Specific Device Classes are 
+	 * Z-Wave Specific Device Class enumeration. Specific Device Classes are
 	 * a more detailed definition of a device, and are based on a
-	 * Generic Device Class. The Specific Device Class inherits all the 
-	 * mandatory commands from the Generic Device Class. In addition to 
-	 * these commands, more mandatory or recommended Command Classes can 
-	 * be specified for a Specific Device Class. 
+	 * Generic Device Class. The Specific Device Class inherits all the
+	 * mandatory commands from the Generic Device Class. In addition to
+	 * these commands, more mandatory or recommended Command Classes can
+	 * be specified for a Specific Device Class.
 	 * @author Brian Crosby
 	 * @author Jan-Willem Spuij
 	 * @author Chris Jackson
@@ -381,10 +381,10 @@ public class ZWaveDeviceClass {
 
 		POWER_SWITCH_BINARY(1, Generic.BINARY_SWITCH, "Binary Power Switch"),
 
-		SCENE_SWITCH_BINARY_DISCONTINUED(2, Generic.BINARY_SWITCH, "Binary Scene Switch (Discontinued)"), 
+		SCENE_SWITCH_BINARY_DISCONTINUED(2, Generic.BINARY_SWITCH, "Binary Scene Switch (Discontinued)"),
 		SCENE_SWITCH_BINARY(3, Generic.BINARY_SWITCH, "Binary Scene Switch"),
 		SIREN_SWITCH_BINARY(5, Generic.BINARY_SWITCH, "Siren Switch"),
-		
+
 		POWER_SWITCH_MULTILEVEL(1, Generic.MULTILEVEL_SWITCH, "Multilevel Power Switch"),
 		SCENE_SWITCH_MULTILEVEL_DISCONTINUED(2, Generic.MULTILEVEL_SWITCH, "Multilevel Scene Switch (Discontinued)"),
 		MOTOR_MULTIPOSITION(3, Generic.MULTILEVEL_SWITCH, "Multiposition Motor"),
@@ -394,12 +394,12 @@ public class ZWaveDeviceClass {
 		MOTOR_CONTROL_CLASS_C(7, Generic.MULTILEVEL_SWITCH, "Motor Control Class C"),
 
 		SWITCH_REMOTE_BINARY(1, Generic.REMOTE_SWITCH, "Binary Remote Switch"),
-		SWITCH_REMOTE_MULTILEVEL(2, Generic.REMOTE_SWITCH, "Multilevel Remote Switch"), 
+		SWITCH_REMOTE_MULTILEVEL(2, Generic.REMOTE_SWITCH, "Multilevel Remote Switch"),
 		SWITCH_REMOTE_TOGGLE_BINARY(3, Generic.REMOTE_SWITCH, "Binary Toggle Remote Switch"),
 		SWITCH_REMOTE_TOGGLE_MULTILEVEL(4, Generic.REMOTE_SWITCH, "Multilevel Toggle Remote Switch"),
 
-		SWITCH_REMOTE2_MULTILEVEL(1, Generic.REMOTE_SWITCH_2, "Multilevel Remote Switch"), 
-		
+		SWITCH_REMOTE2_MULTILEVEL(1, Generic.REMOTE_SWITCH_2, "Multilevel Remote Switch"),
+
 		SWITCH_TOGGLE_BINARY(1, Generic.TOGGLE_SWITCH, "Binary Toggle Switch"),
 		SWITCH_TOGGLE_MULTILEVEL(2, Generic.TOGGLE_SWITCH, "Multilevel Toggle Switch"),
 
@@ -412,11 +412,11 @@ public class ZWaveDeviceClass {
 		RESIDENTIAL_HEAT_RECOVERY_VENTILATION(1, Generic.VENTILATION, "Residential Heat Recovery Ventilation"),
 
 		ROUTING_SENSOR_BINARY(1, Generic.BINARY_SENSOR, "Routing Binary Sensor"),
-		
+
 		ROUTING_SENSOR_MULTILEVEL(1, Generic.MULTILEVEL_SENSOR, "Routing Multilevel Sensor"),
 
 		SIMPLE_METER(1, Generic.METER, "Simple Meter"),
-		
+
 		SIMPLE_GARAGE_DOOR(1, Generic.GARAGE_DOOR, "Simple Garage Door"),
 
 		DOOR_LOCK(1, Generic.ENTRY_CONTROL, "Door Lock"),
@@ -441,17 +441,17 @@ public class ZWaveDeviceClass {
 	     * A mapping between the integer code and its corresponding Generic Device class to facilitate lookup by code.
 	     */
 	    private static Map<Generic, Map<Integer, Specific>> codeToSpecificMapping;
-		
+
 		private int key;
 		private Generic genericDeviceClass;
 		private String label;
-		
+
 		private Specific (int key, Generic genericDeviceClass, String label) {
 			this.key = key;
 			this.label = label;
 			this.genericDeviceClass = genericDeviceClass;
 		}
-		
+
 	    private static void initMapping() {
 	    	codeToSpecificMapping = new HashMap<Generic, Map<Integer, Specific>>();
 	        for (Specific s : values()) {
@@ -476,7 +476,7 @@ public class ZWaveDeviceClass {
 	        // generic classes (and bound to NOT_KNOWN).
 	        if (i == 0)
 	        	return codeToSpecificMapping.get(Generic.NOT_KNOWN).get(i);
-	        
+
 	        if (!codeToSpecificMapping.containsKey(genericDeviceClass))
 				return null;
 
@@ -496,7 +496,7 @@ public class ZWaveDeviceClass {
 		public String getLabel() {
 			return label;
 		}
-		
+
 		/**
 		 * Get the mandatory command classes for this device class.
 		 * @return the mandatory command classes.
@@ -508,7 +508,7 @@ public class ZWaveDeviceClass {
 				case PC_CONTROLLER:
 				case BASIC_REPEATER_SLAVE:
 				case SWITCH_REMOTE_BINARY:
-				case SWITCH_REMOTE_MULTILEVEL: 
+				case SWITCH_REMOTE_MULTILEVEL:
 				case SWITCH_REMOTE_TOGGLE_BINARY:
 				case SWITCH_REMOTE_TOGGLE_MULTILEVEL:
 				case ROUTING_SENSOR_BINARY: // In the documentation Binary Sensor command class is specified, but this is already on the generic class...
@@ -533,9 +533,9 @@ public class ZWaveDeviceClass {
 				case MOTOR_CONTROL_CLASS_B:
 				case MOTOR_CONTROL_CLASS_C:
 					return new CommandClass[] { CommandClass.SWITCH_BINARY, CommandClass.VERSION, CommandClass.MANUFACTURER_SPECIFIC };
-				case SWITCH_TOGGLE_BINARY: 
+				case SWITCH_TOGGLE_BINARY:
 					return new CommandClass[] { CommandClass.SWITCH_TOGGLE_BINARY };
-				case SWITCH_TOGGLE_MULTILEVEL: 
+				case SWITCH_TOGGLE_MULTILEVEL:
 					return new CommandClass[] { CommandClass.SWITCH_TOGGLE_MULTILEVEL };
 				case ENERGY_PRODUCTION:
 					return new CommandClass[] { CommandClass.ENERGY_PRODUCTION };
@@ -564,7 +564,9 @@ public class ZWaveDeviceClass {
 				case ALARM_SENSOR_ZENSOR:
 				case SMOKE_SENSOR_ZENSOR:
 					return new CommandClass[] { CommandClass.SENSOR_ALARM, CommandClass.MANUFACTURER_SPECIFIC, CommandClass.BATTERY, CommandClass.VERSION };
-					
+				case SECURE_KEYPAD_DOOR_LOCK:
+					return new CommandClass[] { CommandClass.SECURITY, CommandClass.MANUFACTURER_SPECIFIC, CommandClass.DOOR_LOCK, CommandClass.USER_CODE, CommandClass.VERSION };
+
 				default:
 					return new CommandClass[0];
 			}
