@@ -9,6 +9,7 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
@@ -158,7 +159,7 @@ public class ZWaveSecureNonceTracker {
 	 * Generate a new nonce, then build a SECURITY_NONCE_REPORT
 	 */
 	SerialMessage generateAndBuildNonceReport() {
-		Nonce nonce = ourNonceTable.generateNewUniqueNonce();
+		Nonce nonce = ourNonceTable.generateNewUniqueNonceForDevice();
 
 		// SECURITY_NONCE_REPORT gets immediate priority
 		SerialMessage message = new SerialMessage(node.getNodeId(), SerialMessageClass.SendData,
@@ -209,10 +210,6 @@ public class ZWaveSecureNonceTracker {
 
 	Nonce getNonceWeGeneratedById(byte nonceId) {
 		Nonce nonce = ourNonceTable.getNonceById(nonceId);
-		if(nonce == null) {
-			logger.error(String.format("NODE %s: Could not find nonce (probably expired) for id=0x%02X in table=%s",
-					node.getNodeId(), nonceId, ourNonceTable));
-		}
 		return nonce;
 	}
 
@@ -448,20 +445,41 @@ public class ZWaveSecureNonceTracker {
 	 *
 	 */
 	private class NonceTable {
+		/**
+		 * Store nonces that we generated but have not been retreived yet here
+		 */
 		private Map<Byte, Nonce> table = new ConcurrentHashMap<Byte, Nonce>();
+
+		/**
+		 * Once a nonce is used (that is, we get a {@link ZWaveSecurityCommandClass#SECURITY_MESSAGE_ENCAP}
+		 * with the nonce id of a nonce) it is removed from {@link #table}.  But the nonce's ID (1st byte)
+		 * is stored here
+		 */
+		private SizeLimitedQueue<Byte> usedNonceIdList = new SizeLimitedQueue(10);
+
+		/**
+		 * When {@link #cleanup()} finds an expired nonce, it's remove from {@link #table} and
+		 * it's nonce id gets stored here
+		 */
+		private SizeLimitedQueue<Byte> expiredNonceIdList = new SizeLimitedQueue(10);
 
 		private NonceTable() {
 			super();
 		}
 
-		private Nonce generateNewUniqueNonce() {
+		private Nonce generateNewUniqueNonceForDevice() {
 			byte[] nonceBytes = generateNonceBytes();
-			// Make sure the id is unique for all currently valid nonces
-			// Can't have duplicate 1st bytes since that is the nonce ID
-			while(ourNonceTable.getNonceById(nonceBytes[0]) != null) {
-				nonceBytes = generateNonceBytes(); // Collision, try again
+			boolean unique = false;
+			while(!unique) { // Collision, try again
+				nonceBytes = generateNonceBytes();
+				// Make sure the id is unique for all nonces in storage
+				// Can't have duplicate 1st bytes since that is the nonce ID
+				unique = ourNonceTable.getNonceById(nonceBytes[0]) == null && !usedNonceIdList.contains(nonceBytes[0])
+						&& !expiredNonceIdList.contains(nonceBytes[0]);
 			}
 			Nonce nonce = new Nonce(nonceBytes, new NonceTimer(NonceTimerType.GENERATED, node));
+			logger.debug(String.format("NODE %s: Generated new nonce for device: %s",
+					node.getNodeId(), SerialMessage.bb2hex(nonce.getNonceBytes())));
 			table.put(nonce.getNonceId(), nonce);
 			return nonce;
 		}
@@ -469,6 +487,20 @@ public class ZWaveSecureNonceTracker {
 		private Nonce getNonceById(byte id) {
 			// Nonces can only be used once so remove it
 			Nonce nonce = table.remove(id);
+			if(nonce != null) {
+				usedNonceIdList.add(nonce.getNonceId());
+				logger.debug(String.format("NODE %s: Device message contained nonce id of id=0x%02X, found matching nonce of: %s",
+						node.getNodeId(), id, nonce));
+			} else if(expiredNonceIdList.contains(id)){
+				logger.error(String.format("NODE %s: Device message contained expired nonce id=0x%02X",
+						node.getNodeId(), id));
+			} else if(usedNonceIdList.contains(id)) {
+				logger.error(String.format("NODE %s: Device message contained nonce that was previously used, id=0x%02X",
+						node.getNodeId(), id));
+			} else {
+				logger.error(String.format("NODE %s: Device message contained nonce that is unknown to us, id=0x%02X.  table=%s, expiredList=%s, usedList=%s",
+						node.getNodeId(), id, table, expiredNonceIdList, usedNonceIdList));
+			}
 			cleanup();
 			return nonce;
 		}
@@ -488,6 +520,7 @@ public class ZWaveSecureNonceTracker {
 						logger.warn(String.format("NODE %s: Expiring nonce with id=0x%02X",
 								node.getNodeId(), nonce.getNonceId()));
 						iter.remove();
+						expiredNonceIdList.add(nonce.getNonceId());
 					}
 				}
 			}
@@ -569,5 +602,28 @@ public class ZWaveSecureNonceTracker {
 			}
 			return buf.toString();
 		}
+	}
+
+	/**
+	 * To ease nonce error condition tracking, we keep nonce values after they expire or are used.
+	 * Limit the number we keep to avoid a memory leak
+	 *
+	 * code from https://stackoverflow.com/questions/5498865/size-limited-queue-that-holds-last-n-elements-in-java
+	 *
+	 * @author Dave Badia
+	 */
+	private class SizeLimitedQueue<E> extends LinkedList<E> {
+	    private int limit;
+
+	    public SizeLimitedQueue(int limit) {
+	        this.limit = limit;
+	    }
+
+	    @Override
+	    public boolean add(E o) {
+	        super.add(o);
+	        while (size() > limit) { super.remove(); }
+	        return true;
+	    }
 	}
 }

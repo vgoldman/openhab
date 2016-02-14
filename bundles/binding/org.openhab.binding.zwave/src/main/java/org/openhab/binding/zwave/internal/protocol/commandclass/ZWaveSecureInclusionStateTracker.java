@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 class ZWaveSecureInclusionStateTracker {
 	private static final Logger logger = LoggerFactory.getLogger(ZWaveSecureInclusionStateTracker.class);
 
+
 	/**
 	 * During node inclusion <b>only</b>, this is the order in which commands should be sent and received.
 	 * Commands absent from this list (for example {@link #SECURITY_MESSAGE_ENCAP}) can be sent/received at any time
@@ -44,6 +45,12 @@ class ZWaveSecureInclusionStateTracker {
 	private byte currentStep = INIT_COMMAND_ORDER_LIST.get(0);
 
 	/**
+	 * After we send a non-nonce security message, we can wait up to 10 seconds
+	 * for a reply.  Then we must exit the inclusion process
+	 */
+	private static final int WAIT_TIME_MILLIS = 10000;
+
+	/**
 	 * The next {@link SerialMessage} that will be given to {@link ZWaveNodeStageAdvancer}
 	 * when it calls {@link ZWaveSecurityCommandClass#initialize(boolean)}
 	 */
@@ -55,6 +62,8 @@ class ZWaveSecureInclusionStateTracker {
 	private final Object nextMessageLock = new Object();
 
 	private String errorState = null;
+
+	private long waitForReplyTimeout = 0;
 
 	private final ZWaveNode node;
 
@@ -104,6 +113,10 @@ class ZWaveSecureInclusionStateTracker {
 		this.errorState = errorState;
 	}
 
+	public void resetWaitForReplyTimeout() {
+		waitForReplyTimeout = System.currentTimeMillis() + WAIT_TIME_MILLIS;
+	}
+
 	void setNextRequest(SerialMessage message) {
 		logger.debug("NODE {}: in InclusionStateTracker.setNextRequest() (current={}) with {}", node.getNodeId(), (nextRequestMessage != null), message);
 		if(nextRequestMessage != null) {
@@ -123,9 +136,16 @@ class ZWaveSecureInclusionStateTracker {
 	 */
 	SerialMessage getNextRequest() {
 		synchronized(nextMessageLock) {
-			logger.debug("NODE {}: in InclusionStateTracker.getNextRequest() returning {}", node.getNodeId(), nextRequestMessage);
+			logger.debug("NODE {}: in InclusionStateTracker.getNextRequest() time left for reply: {}ms, returning {}", node.getNodeId(),
+					(System.currentTimeMillis() - waitForReplyTimeout), nextRequestMessage);
+			if(System.currentTimeMillis() > waitForReplyTimeout) {
+				// waited too long for a reply, secure inclusion failed
+				setErrorState((System.currentTimeMillis() - waitForReplyTimeout)+"ms passed since last request was sent, secure inclusion failed.");
+				return null;
+			}
 			if(nextRequestMessage != null) {
 				SerialMessage message = nextRequestMessage;
+				resetWaitForReplyTimeout();
 				nextRequestMessage = null;
 				return message;
 			}

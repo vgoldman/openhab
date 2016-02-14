@@ -8,6 +8,8 @@
  */
 package org.openhab.binding.zwave.internal.protocol.commandclass;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -23,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.thoughtworks.xstream.annotations.XStreamAlias;
+import com.thoughtworks.xstream.annotations.XStreamOmitField;
 
 /**
  * Handles the DoorLock command class.
@@ -31,7 +34,7 @@ import com.thoughtworks.xstream.annotations.XStreamAlias;
  */
 @XStreamAlias("doorLockCommandClass")
 public class ZWaveDoorLockCommandClass extends ZWaveCommandClass
-	implements ZWaveGetCommands, ZWaveSetCommands {
+	implements ZWaveGetCommands, ZWaveSetCommands, ZWaveCommandClassDynamicState {
 
 	private static final Logger logger = LoggerFactory.getLogger(ZWaveDoorLockCommandClass.class);
 
@@ -53,6 +56,9 @@ public class ZWaveDoorLockCommandClass extends ZWaveCommandClass
 	 * Details about the config of the door lock (timed autolock, etc)
 	 */
 	private static final int DOORLOCK_CONFIG_REPORT = 0x06;
+
+	@XStreamOmitField
+	private boolean dynamicDone = false;
 
 	/**
 	 * Creates a new instance of the ZWaveDoorLockCommandClass class.
@@ -91,6 +97,7 @@ public class ZWaveDoorLockCommandClass extends ZWaveCommandClass
 				return;
 			case DOORLOCK_REPORT:
 				logger.trace("Process Door Lock Report");
+				dynamicDone = true;
 
 				int lockState = serialMessage.getMessagePayloadByte(offset + 1);
 				int handlesMode = serialMessage.getMessagePayloadByte(offset + 2);
@@ -103,7 +110,6 @@ public class ZWaveDoorLockCommandClass extends ZWaveCommandClass
 						"handlesMode = 0x%02x, doorCondition = 0x%02x, lockTimeoutMinutes = 0x%02x," +
 						"lockTimeoutSeconds = 0x%02x", this.getNode().getNodeId(), doorLockState.label, handlesMode,
 						doorCondition, lockTimeoutMinutes, lockTimeoutSeconds));
-
 				ZWaveDoorLockValueEvent zEvent = new ZWaveDoorLockValueEvent(this.getNode().getNodeId(),
 						endpoint, lockState);
 				this.getController().notifyEventListeners(zEvent);
@@ -148,6 +154,24 @@ public class ZWaveDoorLockCommandClass extends ZWaveCommandClass
 				(byte) value
 		};
 		result.setMessagePayload(newPayload);
+		return result;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Collection<SerialMessage> getDynamicValues(boolean refresh) {
+		if (refresh) {
+			dynamicDone = false;
+		}
+
+		if (dynamicDone) {
+			return null;
+		}
+
+		ArrayList<SerialMessage> result = new ArrayList<SerialMessage>();
+		result.add(getValueMessage());
 		return result;
 	}
 

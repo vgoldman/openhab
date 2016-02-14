@@ -40,11 +40,6 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 	private static final byte SECURITY_SCHEME_ZERO = 0x00;
 
 	/**
-	 * Flag so we understand that the secure pairing process was completed at some point in time
-	 */
-	protected boolean securePairingComplete = false;
-
-	/**
 	 * Only non-null when we are including a new node
 	 */
 	@XStreamOmitField
@@ -58,13 +53,6 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 	@XStreamOmitField
 	private SerialMessage lastRequestSecurePairMessage = null;
 
-	/**
-	 * Security messages require multiple rounds of encryption so we
-	 * need to allow extra time before we give up on not getting
-	 * a response
-	 */
-	private static final int WAIT_TIME_MILLIS = 20000;
-
 	private static final String SECURE_INCLUSION_FAILED_MESSAGE = "Secure Inclusion FAILED.";
 
 	/**
@@ -76,6 +64,14 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 	@XStreamOmitField
 	private long waitForReplyTimeout = Long.MAX_VALUE;
 
+	@XStreamOmitField
+	private long inclusionStartedAt = Long.MIN_VALUE;
+
+	/**
+	 * Flag so we understand that the secure pairing process was completed at some point in time
+	 */
+	protected boolean securePairingComplete = false;
+
 	public ZWaveSecurityCommandClassWithInitialization(ZWaveNode node, ZWaveController controller, ZWaveEndpoint endpoint) {
 		super(node, controller, endpoint);
 		controller.addEventListener(this);
@@ -83,10 +79,6 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 
 	private boolean isSecureInclusionInProgress() {
 		return inclusionStateTracker != null;
-	}
-
-	private void resetWaitForReplyTimeout() {
-		waitForReplyTimeout = System.currentTimeMillis() + WAIT_TIME_MILLIS;
 	}
 
 	/**
@@ -129,6 +121,7 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 		lastReceivedMessageTimestamp = System.currentTimeMillis();
 		if(inclusionStateTracker != null && !inclusionStateTracker.verifyAndAdvanceState(command)) {
 			// bad order, abort
+			inclusionStateTracker = null;
 			return;
 		}
 
@@ -244,8 +237,10 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 	/**
 	 * {@inheritDoc}
 	 *
+	 * This code is only executed during secure inclusion.
+	 *
 	 *	ZWaveNodeStageAdvancer calls us for one of the following reasons:
-	 *		1. It's checking for the next message to be sent  (null indicates we're done and it can move to the next stage)
+	 *		1. It's checking for the next message to be sent
 	 *		2. the ZWaveNodeStageAdvancer retry timer was triggered
 	 * <p/>
 	 * During node inclusion we have to exchange many message with the device to setup
@@ -269,7 +264,6 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 	 * <p/>
 	 * This method is nasty but I've already spent hours trying to refactor it into readable code but have obviously failed.
 	 * <p/>
-	 * This code is only executed during secure inclusion.
 	 *
 	 * @return One or more {@link SerialMessage} to be sent OR a zero length collection if we are still waiting for a response OR
 	 * null if the secure pairing process has completed or failed
@@ -279,12 +273,9 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 	@Override
 	public Collection<SerialMessage> initialize(boolean firstIteration) {
 		// ZWaveNodeStageAdvancer calls us for one of the following reasons:
-		// 1. It's checking for the next message to be sent  (null indicates we're done and it can move to the next stage)
+		// 1. It's checking for the next message to be sent
 		// 2. the ZWaveNodeStageAdvancer retry timer was triggered
 		boolean wasThisNodeJustIncluded = wasThisNodeJustIncluded();
-		if(firstIteration) {
-			resetWaitForReplyTimeout();
-		}
 		checkInit();
 		logger.debug("NODE {}: call from NodeAdvancer initialize, firstIteration={}, wasThisNodeJustIncluded={}, keyVerifyReceived={}, "
 				+ "lastReceivedMessage={}ms ago, lastSentMessage={}ms ago",
@@ -294,6 +285,7 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 		if (wasThisNodeJustIncluded) {
 			List<SerialMessage> inclusionMessageReturnList = null;
 			if(firstIteration && !securePairingComplete) {
+				inclusionStartedAt = System.currentTimeMillis();
 				// if we are adding this node, then send SECURITY_SCHEME_GET which will start the Network Key Exchange
 				setupNetworkKey(true);
 				inclusionStateTracker = new ZWaveSecureInclusionStateTracker(getNode());
@@ -309,36 +301,36 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 				};
 				// SchemeGet is unencrypted
 				message.setMessagePayload(payload);
-				inclusionMessageReturnList = Collections.singletonList(message);
-			} else if(receivedSecurityCommandsSupportedReport) {
+				inclusionStateTracker.setNextRequest(message);
+				inclusionMessageReturnList = Collections.emptyList();
+			} else if(receivedSecurityCommandsSupportedReport) { // We're done!
 				securePairingComplete = true;
 				inclusionMessageReturnList = null; // Tell ZWaveNodeStageAdvancer to advance to the next stage
 			} else { // Normal inclusion flow, get the next message or wait for a response to the current one
-				SerialMessage nextMessage = inclusionStateTracker.getNextRequest();
+				SerialMessage nextMessage = null;
+				if(System.currentTimeMillis() > inclusionStartedAt + 5000) {
+					nextMessage = inclusionStateTracker.getNextRequest();
+				}
 				logger.debug("NODE {}: call from NodeAdvancer initialize, inclusion flow, get the next message or wait for a response to the current one, nextMessage={}",
 						this.getNode().getNodeId(), nextMessage);
-				if(nextMessage == null) { // There is an outstanding request
+				if(nextMessage == null) { // There is an outstanding request or a timeout error occured
+					inclusionStateTracker.resetWaitForReplyTimeout();
 					if(inclusionStateTracker.getErrorState() != null) { // Check for errors
 						logger.error("NODE {}: "+SECURE_INCLUSION_FAILED_MESSAGE+" at step {}: {}",
 								this.getNode().getNodeId(), commandToString(inclusionStateTracker.getCurrentStep()),
 								inclusionStateTracker.getErrorState());
 						inclusionStateTracker = null;
-						inclusionMessageReturnList = null;
+						return null; // We're done but are in a failure state
 					} else {
-						// Check our own retry timer (see waitForReplyTimeout javadoc) to see if we need to repeat the last message
-						if(System.currentTimeMillis() > waitForReplyTimeout) {
-							inclusionMessageReturnList = buildRetryMessageList(wasThisNodeJustIncluded);
-						} else {
-							inclusionMessageReturnList = Collections.emptyList();  // Keep waiting for a response
-						}
-					}
+						// Keep waiting for a response
+						inclusionMessageReturnList = Collections.emptyList();
+					} // END There is an outstanding request
 				} else { // nextMessage != null: There is no outstanding request and we have another message to send
 					// Send the next request
 					inclusionMessageReturnList = Collections.singletonList(nextMessage);
 				} // END
 			} // END else  Normal inclusion flow, get the next message or wait for a response to the current one
 			if(inclusionMessageReturnList != null && inclusionMessageReturnList.size() > 0) {
-				resetWaitForReplyTimeout();
 				lastRequestSecurePairMessage = inclusionMessageReturnList.get(0);
 			}
 			logger.debug("NODE {}: call from NodeAdvancer initialize, just included, handing back message={}",
@@ -352,8 +344,8 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 						this.getNode().getNodeId());
 				returnMessageList = null;
 
-				// The node was initialized previously and we are connecting to it after an openhab restart
 			} else if(firstIteration) { // request the current list of security commands as a sanity check
+				// The node was initialized previously and we are connecting to it after an openhab restart
 				if(!SEND_SECURITY_COMMANDS_SUPPORTED_GET_ON_STARTUP) {
 					return null; // nothing to do
 				}
@@ -366,7 +358,6 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 						SECURITY_COMMANDS_SUPPORTED_GET,
 				};
 				message.setMessagePayload(payload);
-				resetWaitForReplyTimeout();
 
 				SerialMessage nonceGetMessage = nonceGeneration.buildNonceGetIfNeeded();
 				// We can't return SECURITY_COMMANDS_SUPPORTED_GET because we need to do a
@@ -386,45 +377,10 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 			logger.debug("NODE {}: call from NodeAdvancer initialize, from xml, handing back message={}",
 					this.getNode().getNodeId(), returnMessageList);
 			if(returnMessageList != null && returnMessageList.size() > 0) {
-				resetWaitForReplyTimeout();
 				lastRequestSecurePairMessage = returnMessageList.get(0);
 			}
 			return returnMessageList;
 		} // end if wasThisNodeJustIncluded
-	}
-
-	private List<SerialMessage> buildRetryMessageList(boolean wasThisNodeJustIncluded) {
-		List<SerialMessage> timeoutMessageReturnList = null;
-		if(lastReceivedMessageTimestamp > lastSentMessageTimestamp) {
-			logger.warn("NODE {}: Possible bug as waitForReplyTimeout triggered but we received a message last; aborting init.  lastSentMessage={}", getNode().getNodeId(), lastSentMessageTimestamp);
-			timeoutMessageReturnList = null;
-		} else { // We've been waiting for a reply but haven't gotten it yet, assume communication failure and resend the last message
-			if(lastRequestSecurePairMessage == null) {
-				logger.warn("NODE {}: Possible bug as waitForReplyTimeout triggered but lastRequestInitMessage=null; aborting init.  lastSentMessage={}", getNode().getNodeId(), lastSentMessageTimestamp);
-				timeoutMessageReturnList = null;
-			} else {
-				timeoutMessageReturnList = Collections.singletonList(lastRequestSecurePairMessage);
-				logger.warn("NODE {}: waitForReplyTimeout triggered, handing back previous sent message",
-						this.getNode().getNodeId());
-				// No need to update lastRequestInitMessage since it remains the same
-			}
-		}
-		logger.debug("NODE {}: call from NodeAdvancer initialize, waitForReplyTimeout triggered, handing back message={}",
-				this.getNode().getNodeId(), timeoutMessageReturnList);
-		if(timeoutMessageReturnList == null) {
-			if(wasThisNodeJustIncluded) {
-				logger.error("NODE {}: "+SECURE_INCLUSION_FAILED_MESSAGE+" At step {}: {}",
-						this.getNode().getNodeId(), commandToString(inclusionStateTracker.getCurrentStep()),
-						inclusionStateTracker.getErrorState());
-				inclusionStateTracker = null;
-				// TODO: DB remove the node?
-			}
-		} else if(timeoutMessageReturnList.size() > 0) {
-			resetWaitForReplyTimeout();
-		}
-		logger.debug("NODE {}: call from NodeAdvancer initialize, waitForReplyTimeout, handing back message={}",
-				this.getNode().getNodeId(), timeoutMessageReturnList);
-		return timeoutMessageReturnList;
 	}
 
 	@Override

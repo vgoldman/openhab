@@ -452,7 +452,7 @@ public class ZWaveNodeStageAdvancer implements ZWaveEventListener {
 			case SECURITY_REPORT:
 				// For devices that use security.  When invoked during secure inclusion, this
 				// method will go through all steps to give the device our zwave:networkKey from
-				// the config.  This requires multiple steps as defined in ZWaveSecurityCommandClassWithInitialization
+				// the config.  This requires multiple steps as defined in ZWaveSecurityCommandClassWithInitialization.
 				// SECURITY_REPORT has different semantics than the other stages such that:
 				// 		1. It cannot generate all of the request messages during the first pass
 				//		2. It handles stage advancement manually, as this code path is most typically called
@@ -480,6 +480,8 @@ public class ZWaveNodeStageAdvancer implements ZWaveEventListener {
 								logger.debug("NODE {}: Since secure inclusion failed, the node must be manually excluded via habmin", node.getNodeId());
 								// Stop the retry timer
 								resetIdleTimer();
+								// Remove the security command class since without a key, it's unusable
+								node.removeCommandClass(CommandClass.SECURITY);
 								// We remove the event listener to reduce loading now that we're done
 								controller.removeEventListener(this);
 								return;
