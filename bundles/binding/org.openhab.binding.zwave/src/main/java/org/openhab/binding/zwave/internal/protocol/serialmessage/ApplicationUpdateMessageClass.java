@@ -12,12 +12,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.openhab.binding.zwave.internal.protocol.SerialMessage;
+import org.openhab.binding.zwave.internal.protocol.SerialMessage.SerialMessageClass;
 import org.openhab.binding.zwave.internal.protocol.ZWaveController;
 import org.openhab.binding.zwave.internal.protocol.ZWaveNode;
-import org.openhab.binding.zwave.internal.protocol.SerialMessage.SerialMessageClass;
 import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveCommandClass;
-import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveWakeUpCommandClass;
 import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveCommandClass.CommandClass;
+import org.openhab.binding.zwave.internal.protocol.commandclass.ZWaveWakeUpCommandClass;
 import org.openhab.binding.zwave.internal.protocol.event.ZWaveInclusionEvent;
 import org.openhab.binding.zwave.internal.protocol.initialization.ZWaveNodeInitStage;
 import org.slf4j.Logger;
@@ -42,12 +42,12 @@ public class ApplicationUpdateMessageClass  extends ZWaveCommandProcessor {
 			// We've received a NIF, and this contains the node ID.
 			nodeId = incomingMessage.getMessagePayloadByte(1);
 			logger.debug("NODE {}: Application update request. Node information received.", nodeId);
-			
+
 			int length = incomingMessage.getMessagePayloadByte(2);
 			ZWaveNode node = zController.getNode(nodeId);
 			if(node == null) {
 				logger.debug("NODE {}: Application update request. Node not known!", nodeId);
-				
+
 				// We've received a NIF from a node we don't know.
 				// This could happen if we add a new node using a different controller than OH.
 				// We handle this the same way as if included through an AddNode packet.
@@ -68,7 +68,7 @@ public class ApplicationUpdateMessageClass  extends ZWaveCommandProcessor {
 				// If this node supports associations, then assume this should be handled through that mechanism
 				if(node.getCommandClass(CommandClass.ASSOCIATION) == null) {
 					// If we receive an Application Update Request and the node is already
-					// fully initialised we assume this is a request to the controller to 
+					// fully initialised we assume this is a request to the controller to
 					// re-get the current node values
 					logger.debug("NODE {}: Application update request. Requesting node state.", nodeId);
 
@@ -83,9 +83,14 @@ public class ApplicationUpdateMessageClass  extends ZWaveCommandProcessor {
 						break;
 					}
 					logger.trace(String.format("NODE %d: Command class 0x%02X is supported.", nodeId, data));
-					ZWaveCommandClass commandClass = ZWaveCommandClass.getInstance(data, node, zController);
-					if (commandClass != null) {
-						node.addCommandClass(commandClass);
+					// See if the command class already exists on the node
+					CommandClass commandClass = CommandClass.getCommandClass(data);
+					if(node.getCommandClass(commandClass) == null) { // add it
+						logger.trace(String.format("NODE %d: Application update request. Adding Command class %s.", nodeId, commandClass));
+						ZWaveCommandClass zwaveCommandClass = ZWaveCommandClass.getInstance(data, node, zController);
+						if (zwaveCommandClass != null) {
+							node.addCommandClass(zwaveCommandClass);
+						}
 					}
 				}
 			}
@@ -123,13 +128,13 @@ public class ApplicationUpdateMessageClass  extends ZWaveCommandProcessor {
 		default:
 			logger.warn("TODO: Implement Application Update Request Handling of {} ({}).", updateState.getLabel(), updateState.getKey());
 		}
-		
+
 		// Check if this completes the transaction
 		checkTransactionComplete(lastSentMessage, incomingMessage);
 
 		return result;
 	}
-	
+
 	/**
 	 * Update state enumeration. Indicates the type of application update state that was sent.
 	 * @author Jan-Willem Spuij
@@ -143,7 +148,7 @@ public class ApplicationUpdateMessageClass  extends ZWaveCommandProcessor {
 		NEW_ID_ASSIGNED(0x40, "New ID Assigned"),
 		DELETE_DONE(0x20, "Delete done"),
 		SUC_ID(0x10, "SUC ID");
-		
+
 		/**
 		 * A mapping between the integer code and its corresponding update state
 		 * class to facilitate lookup by code.
@@ -175,7 +180,7 @@ public class ApplicationUpdateMessageClass  extends ZWaveCommandProcessor {
 			if (codeToUpdateStateMapping == null) {
 				initMapping();
 			}
-			
+
 			return codeToUpdateStateMapping.get(i);
 		}
 
