@@ -102,12 +102,9 @@ public class ZWaveSecureNonceTracker {
 	}
 
 	/**
-	 * @return a useable {@link Nonce} or null if none are avaialabe
+	 * @return a useable {@link Nonce} or null if none are available
 	 */
 	synchronized Nonce getUseableDeviceNonce() {
-		logger.debug("NODE {}: getUseableDeviceNonce start deviceNonceTable={}", node.getNodeId(), deviceNonceTable);
-		deviceNonceTable.cleanup();
-		logger.debug("NODE {}: getUseableDeviceNonce post cleanup deviceNonceTable={}", node.getNodeId(), deviceNonceTable);
 		Nonce nonce = deviceNonceTable.getDeviceNonceToEncryptMessage();
 		logger.debug("NODE {}: getUseableDeviceNonce returning {}", node.getNodeId(), nonce);
 		return nonce;
@@ -203,7 +200,7 @@ public class ZWaveSecureNonceTracker {
 			// The ZWaveSecurityEncapsulationThread will request a new one for us
 			return;
 		}
-
+		logger.debug("NODE {}: receivedNonceFromDevice nonce received setting requestNonceTimer to null", node.getNodeId());
 		requestNonceTimer = null;
 		deviceNonceTable.addNonceFromDevice(nonceBytes);
 	}
@@ -556,13 +553,13 @@ public class ZWaveSecureNonceTracker {
 		}
 
 		private Nonce getDeviceNonceToEncryptMessage() {
-			logger.debug("NODE {}: getDeviceNonceToEncryptMessage start deviceNonceTable={}, timeToNonceMap={}", node.getNodeId(), deviceNonceTable, timeToNonceMap);
+			logger.trace("NODE {}: getDeviceNonceToEncryptMessage start deviceNonceTable={}, timeToNonceMap={}", node.getNodeId(), deviceNonceTable, timeToNonceMap);
 			cleanup();
-			logger.debug("NODE {}: getDeviceNonceToEncryptMessage post cleanup deviceNonceTable={}, timeToNonceMap={}", node.getNodeId(), deviceNonceTable, timeToNonceMap);
+			logger.trace("NODE {}: getDeviceNonceToEncryptMessage post cleanup deviceNonceTable={}, timeToNonceMap={}", node.getNodeId(), deviceNonceTable, timeToNonceMap);
 			Iterator<Nonce> iter = timeToNonceMap.values().iterator();
 			if(iter.hasNext()) {
 				Nonce nonce = iter.next();
-				logger.debug("NODE {}: getDeviceNonceToEncryptMessage found DeviceNonce={}", node.getNodeId(), nonce);
+				logger.trace("NODE {}: getDeviceNonceToEncryptMessage returning DeviceNonce={}", node.getNodeId(), nonce);
 				iter.remove(); // Remove it since we are using it
 				return nonce;
 			} else {

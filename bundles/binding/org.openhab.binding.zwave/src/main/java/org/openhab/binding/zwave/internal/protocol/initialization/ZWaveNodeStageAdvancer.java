@@ -438,17 +438,6 @@ public class ZWaveNodeStageAdvancer implements ZWaveEventListener {
 				}
 				break;
 
-			case DETAILS:
-				// If the incoming frame is the IdentifyNode, then we continue
-				if (node.getApplicationUpdateReceived() == true) {
-					logger.debug("NODE {}: Node advancer: received RequestNodeInfo", node.getNodeId());
-					break;
-				}
-
-				logger.debug("NODE {}: Node advancer: DETAILS - send RequestNodeInfo", node.getNodeId());
-				addToQueue(new RequestNodeInfoMessageClass().doRequest(node.getNodeId()));
-				break;
-
 			case SECURITY_REPORT:
 				// For devices that use security.  When invoked during secure inclusion, this
 				// method will go through all steps to give the device our zwave:networkKey from
@@ -463,17 +452,22 @@ public class ZWaveNodeStageAdvancer implements ZWaveEventListener {
 					ZWaveSecurityCommandClassWithInitialization securityCommandClass = (ZWaveSecurityCommandClassWithInitialization) this.node.getCommandClass(CommandClass.SECURITY);
 					// For a node restored from a config file, this may or may not return a message
 					Collection<SerialMessage> messageList = securityCommandClass.initialize(stageAdvanced);
-					if(messageList == null) { // This means we're done, advance the stage
+					// Speed up retry timer as we use this to fetch outgoing messages instead of just retries
+					retryTimer = 400;
+					if(messageList == null) { // This means we're waiting for a reply or we are done
 						if (isRestoredFromConfigfile()) {
 							// Since we were restored from a config file, redo from the dynamic node stage.
 							logger.debug("NODE {}: Node advancer: Restored from file - skipping static initialisation", node.getNodeId());
 							currentStage = ZWaveNodeInitStage.SESSION_START;
+							securityCommandClass.startSecurityEncapsulationThread();
 							break;
 						} else {
 							// This node was just included, check for success or failure
 							if(securityCommandClass.wasSecureInclusionSuccessful()) {
-								logger.debug("NODE {}: Secure inclusion complete, serializing node", node.getNodeId());
-								nodeSerializer.SerializeNode(node);
+								logger.debug("NODE {}: Secure inclusion complete, continuing with inclusion", node.getNodeId());
+								securityCommandClass.startSecurityEncapsulationThread();
+								nodeSerializer.SerializeNode(node); // TODO: DB remove
+								// retryTimer will be reset to a normal value below
 								break;
 							} else {
 								// securityCommandClass output a message about the failure
@@ -507,6 +501,17 @@ public class ZWaveNodeStageAdvancer implements ZWaveEventListener {
 					logger.info("NODE {}: does not support SECURITY_REPORT, proceeding to next stage.",
 							this.node.getNodeId());
 				}
+				break;
+
+			case DETAILS:
+				// If the incoming frame is the IdentifyNode, then we continue
+				if (node.getApplicationUpdateReceived() == true) {
+					logger.debug("NODE {}: Node advancer: received RequestNodeInfo", node.getNodeId());
+					break;
+				}
+
+				logger.debug("NODE {}: Node advancer: DETAILS - send RequestNodeInfo", node.getNodeId());
+				addToQueue(new RequestNodeInfoMessageClass().doRequest(node.getNodeId()));
 				break;
 
 			case MANUFACTURER:

@@ -86,19 +86,19 @@ class ZWaveSecureInclusionStateTracker {
 			// Commands absent from EXPECTED_COMMAND_ORDER_LIST are always ok
 			return true;
 		}
-		// Going back to the first step (zero index) is always OK
+		// Going back to the first step (zero index) is always OK // TODO: DB is it really?
 		if(INIT_COMMAND_ORDER_LIST.indexOf(newStep) > 0) {
 			// We have to verify where we are at
 			int currentIndex = INIT_COMMAND_ORDER_LIST.indexOf(currentStep);
 			int newIndex = INIT_COMMAND_ORDER_LIST.indexOf(newStep);
-			// We sometimes get repeat messages.  Accept those or the next message
-			if(newIndex != currentIndex && newIndex - currentIndex != 1) {
+			// Accept one message back or the same message(device resending last reply) in addition to the normal one message ahead
+			if(newIndex != currentIndex && newIndex - currentIndex > 1) {
 				if(HALT_ON_IMPROPER_ORDER) {
-					logger.error("NODE {}: Commands received out of order, aborting current={}, new={}",
-							node.getNodeId(), ZWaveSecurityCommandClass.commandToString(currentStep), ZWaveSecurityCommandClass.commandToString(newStep));
+					setErrorState(String.format("NODE %s: Commands received out of order, aborting current=%s, new=%s",
+							node.getNodeId(), ZWaveSecurityCommandClass.commandToString(currentStep), ZWaveSecurityCommandClass.commandToString(newStep)));
 					return false;
 				} else {
-					logger.warn("NODE {}: Commands received out of order (warning only) current={}, new={}",
+					logger.warn("NODE {}: Commands received out of order (warning only, continuing) current={}, new={}",
 							node.getNodeId(), ZWaveSecurityCommandClass.commandToString(currentStep), ZWaveSecurityCommandClass.commandToString(newStep));
 					// fall through below
 				}
@@ -140,7 +140,7 @@ class ZWaveSecureInclusionStateTracker {
 					(System.currentTimeMillis() - waitForReplyTimeout), nextRequestMessage);
 			if(System.currentTimeMillis() > waitForReplyTimeout) {
 				// waited too long for a reply, secure inclusion failed
-				setErrorState((System.currentTimeMillis() - waitForReplyTimeout)+"ms passed since last request was sent, secure inclusion failed.");
+				setErrorState(WAIT_TIME_MILLIS+"ms passed since last request was sent, secure inclusion failed.");
 				return null;
 			}
 			if(nextRequestMessage != null) {

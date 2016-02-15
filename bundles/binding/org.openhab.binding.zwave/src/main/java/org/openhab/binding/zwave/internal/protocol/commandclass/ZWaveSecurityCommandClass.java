@@ -339,8 +339,6 @@ public abstract class ZWaveSecurityCommandClass extends ZWaveCommandClass  {
 			throw new IllegalStateException("NODE "+getNode().getNodeId()+": node wants to use security but key is not set");
 		}
 		setupNetworkKey(false);
-		encapsulationThread = new ZWaveSecurityEncapsulationThread();
-		encapsulationThread.start();
 	}
 
 	/**
@@ -627,7 +625,7 @@ public abstract class ZWaveSecurityCommandClass extends ZWaveCommandClass  {
 	 * Gets the next message from {@link #payloadEncapsulationQueue}, encapsulates (encrypts and MACs) it, then transmits
 	 * Invoked by {@link ZWaveSecurityEncapsulationThread}.  This method must only be called by {@link ZWaveSecurityEncapsulationThread}
 	 */
-	private void sendNextMessageUsingDeviceNonce() {
+	protected void sendNextMessageUsingDeviceNonce() {
 		checkInit();
 		if(!checkRealNetworkKeyLoaded()) {
 			return;
@@ -635,6 +633,11 @@ public abstract class ZWaveSecurityCommandClass extends ZWaveCommandClass  {
 		if(encryptKey == null) {
 			// when loaded from xml, encrypt key will be null so we load it here
 			setupNetworkKey(false);
+		}
+
+		if(payloadEncapsulationQueue.isEmpty()) {
+			logger.warn("NODE {}: payloadQueue was empty, returning", this.getNode().getNodeId());
+			return;
 		}
 
 		Nonce deviceNonce = nonceGeneration.getUseableDeviceNonce();
@@ -758,12 +761,15 @@ public abstract class ZWaveSecurityCommandClass extends ZWaveCommandClass  {
 		if(threadLock == null) {
 			threadLock = new Object();
 		}
+		if(payloadEncapsulationQueue == null) {
+			payloadEncapsulationQueue = new ConcurrentLinkedQueue<ZWaveSecurityPayloadFrame>();
+		}
+	}
+
+	public void startSecurityEncapsulationThread() {
 		if(encapsulationThread == null) {
 			encapsulationThread = new ZWaveSecurityEncapsulationThread();
 			encapsulationThread.start();
-		}
-		if(payloadEncapsulationQueue == null) {
-			payloadEncapsulationQueue = new ConcurrentLinkedQueue<ZWaveSecurityPayloadFrame>();
 		}
 	}
 
@@ -988,7 +994,7 @@ public abstract class ZWaveSecurityCommandClass extends ZWaveCommandClass  {
 		}
 	}
 
-	private void notifyEncapsulationThread() {
+	protected void notifyEncapsulationThread() {
 		long start = System.currentTimeMillis();
 		synchronized (threadLock) {
 			threadLock.notify();

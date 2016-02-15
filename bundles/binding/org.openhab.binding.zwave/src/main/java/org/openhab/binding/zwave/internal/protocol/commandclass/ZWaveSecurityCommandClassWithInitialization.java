@@ -107,6 +107,22 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 		}
 	}
 
+
+	/**
+	 * During inclusion, {@link ZWaveSecurityCommandClass#ZWaveSecurityEncapsulationThread} is not running
+	 * so we override this logic and just have the calling thread (typically ZWaveInputThread) execute the
+	 * security encapsulation logic
+	 */
+	@Override
+	protected void notifyEncapsulationThread() {
+		if(isSecureInclusionInProgress()) {
+			sendNextMessageUsingDeviceNonce();
+		} else {
+			// Normal (non-inclusion mode)
+			super.notifyEncapsulationThread();
+		}
+	}
+
 	/**
 	 * {@inheritDoc}
 	 */
@@ -121,7 +137,6 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 		lastReceivedMessageTimestamp = System.currentTimeMillis();
 		if(inclusionStateTracker != null && !inclusionStateTracker.verifyAndAdvanceState(command)) {
 			// bad order, abort
-			inclusionStateTracker = null;
 			return;
 		}
 
@@ -198,7 +213,9 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 			SerialMessage nonceGetMessage = nonceGeneration.buildNonceGetIfNeeded();
 			// Since we are in init mode, message should always != null
 			if(nonceGetMessage == null) {
-				logger.error("NODE {}: "+SECURE_INCLUSION_FAILED_MESSAGE+" In inclusion mode but buildNonceGetIfNeeded returned null, this may result in a deadlock");
+				inclusionStateTracker.setErrorState(SECURE_INCLUSION_FAILED_MESSAGE+" In inclusion mode but buildNonceGetIfNeeded returned null,"
+						+ " this may result in a deadlock");
+				return;
 			}
 			inclusionStateTracker.setNextRequest(nonceGetMessage); // Let ZWaveNodeStageAdvancer come get it
 			// We can't set SECURITY_COMMANDS_SUPPORTED_GET in inclusionStateTracker because we need to do a
@@ -234,6 +251,8 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 		}
 	}
 
+	// TODO: DB remove
+	private static boolean USE_DELAY_FOR_SCHEME_GET = false;
 	/**
 	 * {@inheritDoc}
 	 *
@@ -289,6 +308,7 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 				// if we are adding this node, then send SECURITY_SCHEME_GET which will start the Network Key Exchange
 				setupNetworkKey(true);
 				inclusionStateTracker = new ZWaveSecureInclusionStateTracker(getNode());
+				inclusionStateTracker.resetWaitForReplyTimeout();
 				// Need to start things off by sending SECURITY_SCHEME_GET
 				SerialMessage message = new SerialMessage(this.getNode().getNodeId(), SerialMessageClass.SendData,
 						SerialMessageType.Request, SerialMessageClass.ApplicationCommandHandler, SECURITY_MESSAGE_PRIORITY);
@@ -299,36 +319,52 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 						SECURITY_SCHEME_GET,
 						0
 				};
-				// SchemeGet is unencrypted
+				message.attempts = 1; // retry only once
 				message.setMessagePayload(payload);
-				inclusionStateTracker.setNextRequest(message);
-				inclusionMessageReturnList = Collections.emptyList();
+				// SchemeGet is unencrypted, hand it back or set it on inclusionStateTracker
+				if(USE_DELAY_FOR_SCHEME_GET) {
+					inclusionStateTracker.setNextRequest(message);
+					inclusionMessageReturnList = Collections.emptyList();
+				} else {
+					inclusionMessageReturnList = Collections.singletonList(message);
+				}
 			} else if(receivedSecurityCommandsSupportedReport) { // We're done!
 				securePairingComplete = true;
 				inclusionMessageReturnList = null; // Tell ZWaveNodeStageAdvancer to advance to the next stage
 			} else { // Normal inclusion flow, get the next message or wait for a response to the current one
 				SerialMessage nextMessage = null;
-				if(System.currentTimeMillis() > inclusionStartedAt + 5000) {
+				if(USE_DELAY_FOR_SCHEME_GET) {
+					boolean timerUp = System.currentTimeMillis() > (inclusionStartedAt + 5000);
+					logger.debug("NODE {}: USE_DELAY_FOR_SCHEME_GET active,  timerUp={}", this.getNode().getNodeId(), timerUp);
+					if(timerUp) {
+						nextMessage = inclusionStateTracker.getNextRequest();
+					}
+				} else {
 					nextMessage = inclusionStateTracker.getNextRequest();
 				}
 				logger.debug("NODE {}: call from NodeAdvancer initialize, inclusion flow, get the next message or wait for a response to the current one, nextMessage={}",
 						this.getNode().getNodeId(), nextMessage);
 				if(nextMessage == null) { // There is an outstanding request or a timeout error occured
-					inclusionStateTracker.resetWaitForReplyTimeout();
-					if(inclusionStateTracker.getErrorState() != null) { // Check for errors
-						logger.error("NODE {}: "+SECURE_INCLUSION_FAILED_MESSAGE+" at step {}: {}",
-								this.getNode().getNodeId(), commandToString(inclusionStateTracker.getCurrentStep()),
-								inclusionStateTracker.getErrorState());
+					if(securePairingComplete) {
 						inclusionStateTracker = null;
-						return null; // We're done but are in a failure state
-					} else {
-						// Keep waiting for a response
-						inclusionMessageReturnList = Collections.emptyList();
-					} // END There is an outstanding request
+						return null; // all done
+					} else { // !securePairingComplete
+						inclusionStateTracker.resetWaitForReplyTimeout();
+						if(inclusionStateTracker.getErrorState() != null) { // Check for errors
+							logger.error("NODE {}: "+SECURE_INCLUSION_FAILED_MESSAGE+" at step {}: {}",
+									this.getNode().getNodeId(), commandToString(inclusionStateTracker.getCurrentStep()),
+									inclusionStateTracker.getErrorState());
+							inclusionStateTracker = null;
+							return null; // We're done but are in a failure state
+						} else {
+							// Keep waiting for a response
+							inclusionMessageReturnList = Collections.emptyList();
+						}
+					} // END securePairingComplete
 				} else { // nextMessage != null: There is no outstanding request and we have another message to send
 					// Send the next request
 					inclusionMessageReturnList = Collections.singletonList(nextMessage);
-				} // END
+				} // END There is an outstanding request
 			} // END else  Normal inclusion flow, get the next message or wait for a response to the current one
 			if(inclusionMessageReturnList != null && inclusionMessageReturnList.size() > 0) {
 				lastRequestSecurePairMessage = inclusionMessageReturnList.get(0);
