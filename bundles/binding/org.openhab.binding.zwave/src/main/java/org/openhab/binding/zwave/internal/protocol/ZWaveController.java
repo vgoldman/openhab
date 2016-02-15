@@ -839,6 +839,7 @@ public class ZWaveController {
 	 */
 	public void requestSoftReset()
 	{
+		logger.info("Performing soft reset on controller");
 		SerialMessage msg = new SerialApiSoftResetMessageClass().doRequest();
 		msg.attempts = 1;
 		this.enqueue(msg);
@@ -850,6 +851,7 @@ public class ZWaveController {
 	 */
 	public void requestHardReset()
 	{
+		logger.info("Performing hard reset on controller");
 		// Clear the queues
 		// If we're resetting, there's no point in queuing messages!
 		sendQueue.clear();
