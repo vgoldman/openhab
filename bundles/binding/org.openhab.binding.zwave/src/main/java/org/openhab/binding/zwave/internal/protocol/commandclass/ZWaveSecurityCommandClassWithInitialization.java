@@ -344,12 +344,11 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 				}
 				logger.debug("NODE {}: call from NodeAdvancer initialize, inclusion flow, get the next message or wait for a response to the current one, nextMessage={}",
 						this.getNode().getNodeId(), nextMessage);
-				if(nextMessage == null) { // There is an outstanding request or a timeout error occured
+				if(nextMessage == null) { // There is an outstanding request or a timeout error occurred
 					if(securePairingComplete) {
 						inclusionStateTracker = null;
 						return null; // all done
 					} else { // !securePairingComplete
-						inclusionStateTracker.resetWaitForReplyTimeout();
 						if(inclusionStateTracker.getErrorState() != null) { // Check for errors
 							logger.error("NODE {}: "+SECURE_INCLUSION_FAILED_MESSAGE+" at step {}: {}",
 									this.getNode().getNodeId(), commandToString(inclusionStateTracker.getCurrentStep()),
@@ -362,7 +361,8 @@ public class ZWaveSecurityCommandClassWithInitialization extends
 						}
 					} // END securePairingComplete
 				} else { // nextMessage != null: There is no outstanding request and we have another message to send
-					// Send the next request
+					// Send the next request and reset our timer
+					inclusionStateTracker.resetWaitForReplyTimeout();
 					inclusionMessageReturnList = Collections.singletonList(nextMessage);
 				} // END There is an outstanding request
 			} // END else  Normal inclusion flow, get the next message or wait for a response to the current one

@@ -88,6 +88,7 @@ public class ZWaveProtectionCommandClass extends ZWaveCommandClass implements ZW
 				logger.debug(String.format("NODE %d: Protection report, value = %s", this.getNode().getNodeId(), protectionType.label));
 				ZWaveCommandClassValueEvent zEvent = new ZWaveCommandClassValueEvent(this.getNode().getNodeId(), endpoint, this.getCommandClass(), value);
 				this.getController().notifyEventListeners(zEvent);
+				dynamicDone = true;
 				break;
 			case PROTECTION_SET:
 			default:
