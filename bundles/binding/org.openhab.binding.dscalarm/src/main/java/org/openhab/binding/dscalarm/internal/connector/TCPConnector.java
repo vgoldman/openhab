@@ -1,12 +1,11 @@
 /**
- * Copyright (c) 2010-2014, openHAB.org and others.
+ * Copyright (c) 2010-2015, openHAB.org and others.
  *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
  */
-
 package org.openhab.binding.dscalarm.internal.connector;
 
 import java.io.BufferedReader;
@@ -30,7 +29,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A class that establishes a TCP Socket connection to the EyezOn Envisalink 3/2DS interface
- * 
+ *
  * @author Russell Stephens
  * @since 1.6.0
  */
@@ -44,10 +43,10 @@ public class TCPConnector implements DSCAlarmConnector {
 	private OutputStreamWriter tcpOutput = null;
 	private BufferedReader tcpInput = null;
 	private TCPListener TCPListener = null;
-	private DSCAlarmConnectorType connectorType = DSCAlarmConnectorType.TCP;
+	private DSCAlarmConnectorType connectorType = DSCAlarmConnectorType.ENVISALINK;
 	private static boolean connected = false;
 	private static List<DSCAlarmEventListener> _listeners = new ArrayList<DSCAlarmEventListener>();
-	
+
 	/**
 	 * Constructor.
 	 **/
@@ -56,14 +55,14 @@ public class TCPConnector implements DSCAlarmConnector {
 		tcpPort = port;
 		connectTimeout = timeout;
 	}
-	
+
 	/**
 	 * Returns Connector Type
 	 **/
 	public DSCAlarmConnectorType getConnectorType() {
-		return connectorType;		
+		return connectorType;
 	}
-	
+
 	/**
 	 * {@inheritDoc}
 	 **/
@@ -71,6 +70,7 @@ public class TCPConnector implements DSCAlarmConnector {
         try {
         	tcpOutput.write(writeString);
             tcpOutput.flush();
+    		logger.debug("write(): Message Sent: {}",writeString);
         }catch (IOException ioException) {
         	logger.error("write(): {}",ioException);
 			connected = false;
@@ -88,6 +88,7 @@ public class TCPConnector implements DSCAlarmConnector {
 
         try {
         	message = tcpInput.readLine();
+    		logger.debug("read(): Message Received: {}",message);
         }
         catch (IOException ioException) {
 			logger.error("read(): IO Exception: ", ioException);
@@ -97,11 +98,11 @@ public class TCPConnector implements DSCAlarmConnector {
 			logger.error("read(): Exception: ", exception);
 			connected = false;
         }
-        
+
         return message;
 
     }
-    
+
 	/**
 	 * {@inheritDoc}
 	 **/
@@ -113,7 +114,7 @@ public class TCPConnector implements DSCAlarmConnector {
 			tcpOutput = new OutputStreamWriter(tcpSocket.getOutputStream(), "US-ASCII");
             tcpInput = new BufferedReader(new InputStreamReader(tcpSocket.getInputStream()));
             connected = true;
-            
+
 			//Start the TCP Listener
 	    	TCPListener = new TCPListener();
 	    	TCPListener.start();
@@ -138,16 +139,16 @@ public class TCPConnector implements DSCAlarmConnector {
 
 	 /**
 	  * Handles an incoming  message
-	  * 
+	  *
 	  * @param incomingMessage
 	  */
 	 public synchronized void handleIncomingMessage(String incomingMessage) {
 		APIMessage Message = new APIMessage(incomingMessage);
-		logger.debug("handleIncomingMessage(): Message recieved: {} - {}",incomingMessage,Message.toString());
+		logger.debug("handleIncomingMessage(): Message received: {} - {}",incomingMessage,Message.toString());
 
 		DSCAlarmEvent event = new DSCAlarmEvent(this);
 		event.dscAlarmEventMessage(Message);
-		
+
 		// send message to event listeners
 		try {
 			Iterator<DSCAlarmEventListener> iterator = _listeners.iterator();
@@ -161,14 +162,14 @@ public class TCPConnector implements DSCAlarmConnector {
 		}
 	 }
 
- 
+
 	/**
 	 * {@inheritDoc}
 	 **/
 	 public boolean isConnected() {
 		 return connected;
 	 }
-   
+
 	/**
 	 * {@inheritDoc}
 	 **/
@@ -208,25 +209,25 @@ public class TCPConnector implements DSCAlarmConnector {
 	 * {@inheritDoc}
 	 **/
 	public synchronized void removeEventListener(DSCAlarmEventListener listener) {
-		_listeners.remove(listener);		
+		_listeners.remove(listener);
 	}
 
 	/**
 	 * TCPMessageListener Thread. Receives  messages from the DSC Alarm Panel API.
-	 */	
+	 */
 	private class TCPListener extends Thread {
 		private final Logger logger = LoggerFactory.getLogger(TCPListener.class);
-	
+
 		public TCPListener() {
 		}
-		
+
 		/**
 		 * Run method. Runs the MessageListener thread
 		 */
 		@Override
 		public void run() {
 			String messageLine;
-			
+
 			try {
 				while(connected) {
 					if((messageLine = read()) != null) {

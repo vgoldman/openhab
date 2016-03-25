@@ -1,12 +1,10 @@
-/*
- * Copyright (c) 2014 openHAB.org.
+/**
+ * Copyright (c) 2010-2016, openHAB.org and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *    openHAB.org - initial API and implementation and/or initial documentation
  */
 package org.openhab.binding.modbus.internal;
 
@@ -17,7 +15,7 @@ import net.wimpi.modbus.Modbus;
  * @author hg8496
  */
 public abstract class ModbusIPSlave extends ModbusSlave {
-    
+
     /** host address */
     protected String host;
     /** connection port. Default 502 */
@@ -42,5 +40,5 @@ public abstract class ModbusIPSlave extends ModbusSlave {
     void setPort(int port) {
         this.port = port;
     }
-    
+
 }
